@@ -6,3 +6,4 @@ Chaque décision importante du projet a sa fiche : option choisie, options
 | N° | Décision | Date |
 |----|----------|------|
 | [0001](0001-gestion-environnement-python.md) | Gestion de l'environnement Python : uv | 2026-10-29 |
+| [0002](0002-outil-de-tests.md) | Outil de tests : pytest | 2026-10-29 |

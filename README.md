@@ -17,6 +17,12 @@ uv sync          # installe Python 3.13 si besoin, crée .venv/ et installe les 
 
 Dans VS Code, choisir l'interpréteur `.venv` (commande « Python: Select Interpreter »).
 
+## Tests
+
+```bash
+uv run pytest
+```
+
 ## Documentation
 
 - [Journal des décisions](docs/decisions/README.md)
