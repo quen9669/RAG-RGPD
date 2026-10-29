@@ -1,0 +1,16 @@
+# Environnement virtuel créé par uv (se recrée avec `uv sync`)
+.venv/
+
+# Caches Python et outils
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Secrets locaux (clés d'API, etc.) : ne jamais les versionner
+.env
+
+# Réglages personnels de l'éditeur
+.vscode/*
+!.vscode/extensions.json
