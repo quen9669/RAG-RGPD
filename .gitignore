@@ -14,3 +14,8 @@ __pycache__/
 # Réglages personnels de l'éditeur
 .vscode/*
 !.vscode/extensions.json
+
+# Fichiers bruts téléchargés : jamais publiés (le dépôt est public et
+# certaines licences, comme celle de la CNPD, interdisent la rediffusion).
+# Seul data/manifest.jsonl est versionné.
+data/raw/

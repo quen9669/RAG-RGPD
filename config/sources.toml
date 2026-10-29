@@ -1,0 +1,24 @@
+# Documents à télécharger avec `uv run rag-ingest documents`.
+# Une section [[documents]] par document. Avant d'ajouter une source,
+# vérifier sa licence et créer ou compléter sa fiche dans docs/sources/.
+
+[[documents]]
+id = "rgpd-fr"
+source = "eur-lex"
+title = "Règlement (UE) 2016/679 (RGPD), texte en français"
+url = "https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32016R0679"
+licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+
+[[documents]]
+id = "cnpd-formation-notions-elementaires"
+source = "cnpd"
+title = "CNPD, formation 1 : notions élémentaires (2018)"
+url = "https://cnpd.public.lu/dam-assets/fr/actualites/national/2018/formations/fr-formation-cnpd-1-notions-elementaires.pdf"
+licence = "Usage personnel et privé uniquement, pas de rediffusion (voir docs/sources/cnpd.md)"
+
+[[documents]]
+id = "cnpd-brochure-responsable-sous-traitant"
+source = "cnpd"
+title = "CNPD, brochure responsable du traitement et sous-traitant"
+url = "https://cnpd.public.lu/content/dam/cnpd/fr/publications/brochures/brochure-rt-st/brochure-rt-st-fr.pdf"
+licence = "Usage personnel et privé uniquement, pas de rediffusion (voir docs/sources/cnpd.md)"

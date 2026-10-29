@@ -23,6 +23,18 @@ Dans VS Code, choisir l'interpréteur `.venv` (commande « Python: Select Interp
 uv run pytest
 ```
 
+## Récupérer les données
+
+```bash
+uv run rag-ingest documents             # documents listés dans config/sources.toml
+uv run rag-ingest catalogue             # catalogue complet de data.public.lu
+uv run rag-ingest catalogue --max-pages 1   # essai rapide
+```
+
+Les fichiers bruts vont dans `data/raw/` (non publié, voir les licences) et
+chaque téléchargement est tracé dans `data/manifest.jsonl`.
+
 ## Documentation
 
 - [Journal des décisions](docs/decisions/README.md)
+- [Fiches sources](docs/sources/README.md)
