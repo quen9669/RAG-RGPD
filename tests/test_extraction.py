@@ -105,8 +105,8 @@ def test_pdf_page_vide_ignoree() -> None:
 
 
 def test_clean_text_puces_apostrophes_et_guillemets() -> None:
-    assert clean_text("▫ ▫ nom, ▫ ▫ adresse") == "• nom, • adresse"
-    assert clean_text("•Harmonisation: •Un renforcement") == "• Harmonisation: • Un renforcement"
+    assert clean_text("▫ ▫ nom, ▫ ▫ adresse") == "• nom,\n• adresse"
+    assert clean_text("•Harmonisation: •Un renforcement") == "• Harmonisation:\n• Un renforcement"
     assert clean_text("l’article “ Accountability ”") == "l'article “Accountability”"
 
 

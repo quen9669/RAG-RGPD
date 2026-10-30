@@ -51,6 +51,9 @@ def clean_text(text: str) -> str:
     text = _ZERO_WIDTH.sub("", text)
     text = _PRIVATE_USE.sub("•", text)
     text = _BULLETS.sub("• ", text)
+    # Une puce au milieu d'une ligne (diapositive dont les lignes ont été
+    # mises bout à bout) commence en fait un nouvel élément de liste.
+    text = re.sub(r"(?<=\S) • ", "\n• ", text)
     text = _APOSTROPHES.sub("'", text)
     text = _QUOTE_INNER_SPACES.sub(lambda m: m.group().strip(), text)
     text = _SPECIAL_SPACES.sub(" ", text)
