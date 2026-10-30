@@ -20,6 +20,8 @@
 - id: donnee-sensible
   question: Qu'est-ce qu'une donnée sensible ?
   sources: [Article 9]
+  defaut_connu: >-
+    Article 9 absent des 12 premiers passages : les considérants (10, 91, 51) et l'article 4 passent devant (essai du 30/10/2026, k=8).
 
 - id: effacement
   question: Puis-je demander l'effacement de mes données ?
@@ -42,6 +44,8 @@
   question: Sur quelles bases légales peut-on traiter des données personnelles ?
   sources: [Article 6]
   rang_max: 3
+  defaut_connu: >-
+    Article 6 absent des 12 premiers : considérants 45 à 50 et article 5 passent devant, similarités toutes entre 0,57 et 0,69 (essai du 30/10/2026).
 
 - id: delegue
   question: Quand faut-il désigner un délégué à la protection des données ?
@@ -51,6 +55,8 @@
 - id: droit-d-acces
   question: Comment savoir quelles données une entreprise détient sur moi ?
   sources: [Article 15]
+  defaut_connu: >-
+    Article 15 seulement au rang 11 : la recherche par mots fait remonter les articles 47 et 64 (essai du 30/10/2026 ; passe avec k=12).
 
 - id: sous-traitant
   question: Quelles sont les obligations d'un sous-traitant ?

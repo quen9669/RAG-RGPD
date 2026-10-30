@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import textwrap
 
 from rag_rgpd.answering.generator import (
     MODEL_INSUFFICIENT,
@@ -137,8 +136,9 @@ def format_trace(trace: Trace, *, show_prompt: bool = False) -> str:
 
         out.append(_section("5. Réponse brute du modèle"))
         out.append(f"modèle : {trace.llm_model}" + ("  (relu dans le cache)" if trace.from_cache else ""))
-        out.append(textwrap.fill(trace.raw_text or "(vide)", WIDTH,
-                                 replace_whitespace=False) if trace.raw_text else "(vide)")
+        # Texte tel quel : un retour à la ligne automatique casserait les
+        # paragraphes et le gras Markdown (« **...** ») renvoyés par le modèle.
+        out.append(trace.raw_text or "(vide)")
 
         out.append(_section("6. Citations"))
         if not trace.citations:

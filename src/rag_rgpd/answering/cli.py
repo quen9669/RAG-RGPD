@@ -101,9 +101,15 @@ def format_source(number: int, hit: Hit) -> str:
     return f"[{number}] {hit.chunk.heading}{_pages(hit.chunk)}\n    {hit.chunk.url}"
 
 
-def format_answer(answer: Answer) -> str:
-    """Réponse lisible : texte, puis uniquement les sources citées."""
-    lines = [answer.text]
+def format_answer(answer: Answer, *, with_text: bool = True) -> str:
+    """Réponse lisible : texte, puis uniquement les sources citées.
+
+    Args:
+        answer: la réponse.
+        with_text: ``False`` pour n'afficher que les sources (la fiche de
+            décision affiche déjà le texte de la réponse).
+    """
+    lines = [answer.text] if with_text else []
     if answer.refused:
         lines.append(f"\n(Raison : {answer.reason}.)")
         return "\n".join(lines)
@@ -201,8 +207,7 @@ def ask_main(argv: list[str] | None = None) -> None:
     log_answer(answer, searcher.meta, args.log)
     if args.explain:
         print(format_trace(trace, show_prompt=args.show_prompt))
-        print()
-    print(format_answer(answer))
+    print(format_answer(answer, with_text=not args.explain))
     print(f"\n(fiche de décision : uv run rag-trace {trace.trace_id})")
 
 

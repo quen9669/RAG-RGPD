@@ -124,7 +124,9 @@ def run_batch(
             "source_ok": source_ok,
             "refus_ok": refused == case.refused,
             "cites": " | ".join(cited),
-            "citations_ok": all(c["verified"] for c in trace.citations),
+            # Sans LLM, il n'y a pas de citation à vérifier : case vide.
+            "citations_ok": (None if trace.decision == SEARCH_ONLY
+                             else all(c["verified"] for c in trace.citations)),
             "cout_usd": trace.cost_usd,
             "cache": trace.from_cache,
             "trace_id": trace.trace_id,
@@ -158,10 +160,12 @@ def summarize(rows: list[dict[str, Any]]) -> str:
         with_source = [r for r in group if r["source_ok"] is not None]
         source_ok = sum(1 for r in with_source if r["source_ok"])
         refus_ok = sum(1 for r in group if r["refus_ok"])
-        citations_ok = sum(1 for r in group if r["citations_ok"])
+        with_llm = [r for r in group if r["citations_ok"] is not None]
+        citations_ok = sum(1 for r in with_llm if r["citations_ok"])
+        citations = f"{citations_ok:>6}/{len(with_llm):<6}" if with_llm else f"{'-':>7}{'':6}"
         cost = sum(r["cout_usd"] or 0 for r in group)
         lines.append(
             f"{name:<38} {source_ok:>4}/{len(with_source):<5} {refus_ok:>4}/{len(group):<4} "
-            f"{citations_ok:>6}/{len(group):<6} {cost:>9.4f}"
+            f"{citations} {cost:>9.4f}"
         )
     return "\n".join(lines)

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import anthropic
@@ -79,7 +79,7 @@ def batch_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--index-dir", type=Path, default=Path("data/index"))
     parser.add_argument("--embedding-model", default=DEFAULT_EMBEDDING_MODEL)
     parser.add_argument("--out", type=Path, default=None,
-                        help="fichier CSV (par défaut data/batches/<date>.csv)")
+                        help="fichier CSV (par défaut data/batches/<date UTC>.csv)")
     parser.add_argument("--trace", type=Path, default=DEFAULT_TRACE_PATH)
     parser.add_argument("--env-file", type=Path, default=Path(".env"))
     args = parser.parse_args(argv)
@@ -108,7 +108,7 @@ def batch_main(argv: list[str] | None = None) -> None:
     except anthropic.APIError as error:
         sys.exit(f"Erreur de l'API Anthropic : {ask_cli._api_error_message(error)}")
 
-    out = args.out or Path("data/batches") / f"{datetime.now():%Y%m%d-%H%M%S}.csv"
+    out = args.out or Path("data/batches") / f"{datetime.now(UTC):%Y%m%d-%H%M%S}.csv"
     write_csv(rows, out)
     print()
     print(summarize(rows))
