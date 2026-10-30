@@ -37,3 +37,8 @@ data/logs/
 data/traces/
 data/cache/
 data/batches/
+
+# Rapports d'évaluation complets (étape 5) : commentaires du correcteur et
+# phrases recopiées reprennent des extraits, même règle. Seuls les scores de
+# référence (evals/reference.json, sans aucun texte) sont versionnés.
+data/evals/

@@ -44,8 +44,11 @@ def searcher():
         pytest.skip(f"pas d'index dans {INDEX_DIR} : lancer `uv run rag-index`")
     from rag_rgpd.retrieval.embeddings import SentenceTransformerEmbedder
     from rag_rgpd.retrieval.index import Searcher, read_meta
+    from rag_rgpd.retrieval.rerank import CrossEncoderReranker
 
-    return Searcher(INDEX_DIR, SentenceTransformerEmbedder(read_meta(INDEX_DIR).embedding_model))
+    # Même chaîne que rag-ask : recherche hybride, reclassement, articles cités.
+    return Searcher(INDEX_DIR, SentenceTransformerEmbedder(read_meta(INDEX_DIR).embedding_model),
+                    reranker=CrossEncoderReranker())
 
 
 def _check_sources(case: Case, trace: Trace) -> None:

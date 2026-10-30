@@ -23,7 +23,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, fields
+import re
+from dataclasses import asdict, dataclass, fields, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -34,6 +35,7 @@ from lancedb.index import FTS
 
 from rag_rgpd.processing.pipeline import Chunk
 from rag_rgpd.retrieval.embeddings import Embedder
+from rag_rgpd.retrieval.rerank import Reranker
 
 TABLE_NAME = "chunks"
 META_FILE = "index_meta.json"
@@ -47,6 +49,16 @@ DEFAULT_MIN_SIMILARITY = 0.45
 Valeur de départ prudente pour BGE-M3 ; elle sera calibrée à l'étape 5 avec
 le jeu de questions (trop haute, on refuse à tort ; trop basse, on laisse
 passer des questions hors sujet)."""
+
+DEFAULT_POOL = 30
+"""Passages relus par le modèle de reclassement : assez pour rattraper un
+bon article classé 11e ou 20e par la recherche hybride, assez peu pour
+rester autour d'une seconde sur un PC sans carte graphique."""
+
+_REFERENCE = re.compile(
+    r"\b(?P<kind>articles?|art\.|considérants?)\s*(?P<number>\d{1,3})\b",
+    re.IGNORECASE,
+)
 
 
 class IndexMismatchError(RuntimeError):
@@ -83,12 +95,18 @@ class Hit:
     Attributes:
         chunk: le morceau, avec tout ce qu'il faut pour le citer.
         similarity: similarité cosinus avec la question (-1 à 1).
-        score: score de fusion RRF, qui fixe l'ordre des résultats.
+        score: score de fusion RRF de la recherche hybride.
+        rerank_score: note du modèle de reclassement (0 à 1), qui fixe
+            l'ordre quand il est utilisé ; ``None`` sinon.
+        pinned: ``True`` si le passage a été placé en tête parce que la
+            question cite son article (« article 17 »).
     """
 
     chunk: Chunk
     similarity: float
     score: float
+    rerank_score: float | None = None
+    pinned: bool = False
 
 
 def embedding_text(chunk: Chunk) -> str:
@@ -100,6 +118,38 @@ def embedding_text(chunk: Chunk) -> str:
     « article 6 » devient trouvable par mots-clés.
     """
     return f"{chunk.heading}\n\n{chunk.text}"
+
+
+def cited_labels(question: str) -> list[str]:
+    """Articles et considérants cités par leur numéro dans la question.
+
+    « Que dit l'article 17 ? » -> ``["Article 17"]`` ; « art. 6 et
+    considérant 47 » -> ``["Article 6", "Considérant 47"]``. Ces étiquettes
+    sont celles des morceaux du RGPD (voir ``processing/sections.py``).
+
+    Pourquoi : la recherche par le sens ne sait pas qu'« article 17 » désigne
+    un passage précis, et la recherche par mots-clés trouve « article » et
+    « 17 » un peu partout (« l'article 17, paragraphe 3 » cité dans d'autres
+    articles). Quand l'utilisateur nomme un article, on va le chercher
+    directement.
+    """
+    labels = []
+    for match in _REFERENCE.finditer(question):
+        kind = "Considérant" if match["kind"].lower().startswith("consid") else "Article"
+        label = f"{kind} {int(match['number'])}"
+        if label not in labels:
+            labels.append(label)
+    return labels
+
+
+def _label_filter(labels: list[str]) -> str:
+    """Filtre SQL (syntaxe LanceDB) : « Article 17 » et ses paragraphes."""
+    parts = []
+    for label in labels:
+        # Les étiquettes viennent de notre expression régulière (lettres,
+        # espace, chiffres) : aucune apostrophe à échapper.
+        parts.append(f"label = '{label}' OR label LIKE '{label},%' OR label LIKE '{label} %'")
+    return " OR ".join(f"({p})" for p in parts)
 
 
 def _schema(dimension: int) -> pa.Schema:
@@ -217,6 +267,13 @@ def read_meta(index_dir: Path) -> IndexMeta:
 _CHUNK_FIELDS = [f.name for f in fields(Chunk)]
 
 
+def _label_position(label: str, labels: list[str]) -> int:
+    for position, wanted in enumerate(labels):
+        if label == wanted or label.startswith((wanted + ",", wanted + " ")):
+            return position
+    return len(labels)
+
+
 def _row_to_chunk(row: dict) -> Chunk:
     values = {name: row[name] for name in _CHUNK_FIELDS}
     values["context"] = tuple(values["context"] or ())
@@ -224,14 +281,36 @@ def _row_to_chunk(row: dict) -> Chunk:
 
 
 class Searcher:
-    """Recherche hybride dans un index construit par ``build_index``."""
+    """Recherche hybride dans un index construit par ``build_index``.
 
-    def __init__(self, index_dir: Path, embedder: Embedder) -> None:
+    Trois étapes (décision 0011) :
+
+    1. recherche hybride (sens + mots-clés, fusion RRF) ;
+    2. si un modèle de reclassement est fourni, il relit les ``pool``
+       premiers passages et fixe l'ordre ;
+    3. si la question cite un article par son numéro, les morceaux de cet
+       article passent en tête.
+    """
+
+    def __init__(
+        self,
+        index_dir: Path,
+        embedder: Embedder,
+        *,
+        reranker: Reranker | None = None,
+        pool: int = DEFAULT_POOL,
+        pin_cited_articles: bool = True,
+    ) -> None:
         """Ouvre l'index.
 
         Args:
             index_dir: dossier de l'index.
             embedder: modèle d'embedding, le même que pour la construction.
+            reranker: modèle de reclassement ; ``None`` pour garder l'ordre
+                de la recherche hybride (comportement de l'étape 4).
+            pool: passages relus par le modèle de reclassement.
+            pin_cited_articles: placer en tête les articles cités par leur
+                numéro dans la question.
 
         Raises:
             FileNotFoundError: si l'index n'existe pas.
@@ -245,6 +324,27 @@ class Searcher:
             )
         self._embedder = embedder
         self._table = lancedb.connect(index_dir).open_table(TABLE_NAME)
+        self.reranker = reranker
+        self.pool = pool
+        self.pin_cited_articles = pin_cited_articles
+
+    @property
+    def settings(self) -> dict[str, object]:
+        """Réglages de la recherche, à tracer avec chaque réponse."""
+        return {
+            "reranker": self.reranker.model_name if self.reranker else "",
+            "pool": self.pool if self.reranker else None,
+            "pin_cited_articles": self.pin_cited_articles,
+        }
+
+    def _hit(self, row: dict, query_vector: np.ndarray, **extra: object) -> Hit:
+        return Hit(
+            chunk=_row_to_chunk(row),
+            # Vecteurs normalisés : le produit scalaire est le cosinus.
+            similarity=float(np.dot(query_vector, np.asarray(row["vector"]))),
+            score=float(row.get("_relevance_score", 0.0)),
+            **extra,
+        )
 
     def search(self, question: str, *, k: int = DEFAULT_K) -> list[Hit]:
         """Retrouve les ``k`` passages les plus pertinents.
@@ -257,22 +357,37 @@ class Searcher:
             Les passages, du plus pertinent au moins pertinent.
         """
         query_vector = self._embedder.embed([question])[0]
+        limit = max(k, self.pool) if self.reranker else k
         rows = (
             self._table.search(query_type="hybrid")
             .vector(query_vector.tolist())
             .text(question)
-            .limit(k)
+            .limit(limit)
             .to_list()
         )
-        return [
-            Hit(
-                chunk=_row_to_chunk(row),
-                # Vecteurs normalisés : le produit scalaire est le cosinus.
-                similarity=float(np.dot(query_vector, np.asarray(row["vector"]))),
-                score=float(row["_relevance_score"]),
+        hits = [self._hit(row, query_vector) for row in rows]
+
+        if self.reranker is not None and hits:
+            notes = self.reranker.score(question, [embedding_text(h.chunk) for h in hits])
+            hits = [replace(h, rerank_score=n) for h, n in zip(hits, notes, strict=True)]
+            # Tri stable : à note égale, l'ordre de la recherche hybride reste.
+            hits.sort(key=lambda h: -(h.rerank_score or 0.0))
+
+        labels = cited_labels(question) if self.pin_cited_articles else []
+        if labels:
+            pinned_rows = (
+                self._table.search()
+                .where(_label_filter(labels), prefilter=True)
+                .limit(max(k, 50))
+                .to_list()
             )
-            for row in rows
-        ]
+            # Ordre des articles cités, puis ordre du texte (l'identifiant du
+            # morceau finit par son numéro d'ordre dans le document).
+            pinned_rows.sort(key=lambda r: (_label_position(r["label"], labels), r["chunk_id"]))
+            pinned = [self._hit(row, query_vector, pinned=True) for row in pinned_rows]
+            ids = {h.chunk.chunk_id for h in pinned}
+            hits = pinned + [h for h in hits if h.chunk.chunk_id not in ids]
+        return hits[:k]
 
     def ranks(self, question: str, *, depth: int = 50) -> dict[str, tuple[int | None, int | None]]:
         """Rang de chaque passage dans chacune des deux recherches, avant fusion.

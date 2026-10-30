@@ -11,13 +11,16 @@ la réponse (qui varie d'un appel à l'autre) :
       rang_max: 8             # ... parmi les 8 premiers (facultatif)
       refus: false            # l'assistant doit répondre (true = doit refuser)
       defaut_connu: ""        # texte non vide = échec attendu (xfail)
+      points_cles: [...]      # idées qu'une bonne réponse contient (étape 5)
+      piege: ""               # erreur à ne pas commettre (étape 5)
 
 Une source s'écrit comme l'étiquette d'un morceau (« Article 17 » couvre
 aussi « Article 17, paragraphe 1 »), ou comme l'identifiant d'un document
 (« cnpd-brochure-responsable-sous-traitant »).
 
-Ces cas servent aux tests pytest, aux essais en lot (``rag-batch``) et
-deviendront la base du jeu d'évaluation de l'étape 5.
+Ces cas servent aux tests pytest, aux essais en lot (``rag-batch``) et au
+jeu d'évaluation de l'étape 5 (``rag-eval``), qui lit aussi ``points_cles``
+et ``piege`` pour noter les réponses.
 """
 
 from __future__ import annotations
@@ -44,6 +47,10 @@ class Case:
             tous les passages envoyés).
         known_issue: description d'un défaut connu ; non vide, le test est
             marqué « échec attendu » au lieu de faire échouer la suite.
+        key_points: idées qu'une bonne réponse doit contenir, vérifiées par
+            le correcteur LLM (``rag-eval``).
+        trap: erreur précise à ne pas commettre (par exemple appliquer à
+            l'effacement les règles du droit d'accès), vide s'il n'y en a pas.
     """
 
     id: str
@@ -52,6 +59,8 @@ class Case:
     refused: bool = False
     max_rank: int | None = None
     known_issue: str = ""
+    key_points: tuple[str, ...] = ()
+    trap: str = ""
 
 
 def load_cases(path: Path = DEFAULT_CASES_PATH) -> list[Case]:
@@ -73,6 +82,8 @@ def load_cases(path: Path = DEFAULT_CASES_PATH) -> list[Case]:
             refused=bool(entry.get("refus", False)),
             max_rank=entry.get("rang_max"),
             known_issue=str(entry.get("defaut_connu") or ""),
+            key_points=tuple(str(p) for p in entry.get("points_cles") or ()),
+            trap=str(entry.get("piege") or ""),
         ))
     ids = [c.id for c in cases]
     duplicates = {i for i in ids if ids.count(i) > 1}
