@@ -15,6 +15,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
+import anthropic
 from dotenv import load_dotenv
 
 from rag_rgpd.answering.generator import (
@@ -58,6 +59,20 @@ def _pages(chunk: Chunk) -> str:
     if chunk.page_end and chunk.page_end != chunk.page_start:
         return f", p. {chunk.page_start}-{chunk.page_end}"
     return f", p. {chunk.page_start}"
+
+
+def _api_error_message(error: anthropic.APIError) -> str:
+    """Message court et compréhensible pour une erreur de l'API."""
+    if isinstance(error, anthropic.AuthenticationError):
+        return "clé refusée, vérifier ANTHROPIC_API_KEY dans .env."
+    if isinstance(error, anthropic.APIConnectionError):
+        return "connexion impossible, vérifier l'accès à Internet."
+    body = getattr(error, "body", None)
+    if isinstance(body, dict):
+        detail = body.get("error", {}).get("message")
+        if detail:
+            return detail
+    return error.message
 
 
 def format_source(number: int, hit: Hit) -> str:
@@ -137,11 +152,16 @@ def ask_main(argv: list[str] | None = None) -> None:
     if not os.environ.get("ANTHROPIC_API_KEY"):
         sys.exit("Clé manquante : ajouter ANTHROPIC_API_KEY=... dans le fichier .env "
                  "(voir README), ou utiliser --search-only.")
-    answer = answer_question(
-        args.question, hits, make_generator(args.model),
-        min_similarity=args.min_similarity,
-        params={"k": args.k, "embedding_model": args.embedding_model},
-    )
+    try:
+        answer = answer_question(
+            args.question, hits, make_generator(args.model),
+            min_similarity=args.min_similarity,
+            params={"k": args.k, "embedding_model": args.embedding_model},
+        )
+    except anthropic.APIError as error:
+        # Clé refusée, crédit épuisé, réseau coupé... : une phrase lisible
+        # plutôt qu'une trace Python de quarante lignes.
+        sys.exit(f"Erreur de l'API Anthropic : {_api_error_message(error)}")
     log_answer(answer, searcher.meta, args.log)
     print(format_answer(answer))
 

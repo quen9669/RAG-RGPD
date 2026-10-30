@@ -170,7 +170,8 @@ def test_rag_ask_affiche_les_sources_et_journalise(
     log = tmp_path / "answers.jsonl"
 
     cli.ask_main(["délégué à la protection des données", "--index-dir", str(index_dir),
-                  "--k", "2", "--min-similarity", "0.1", "--log", str(log)])
+                  "--k", "2", "--min-similarity", "0.1", "--log", str(log),
+                  "--env-file", str(tmp_path / "absent.env")])
 
     out = capsys.readouterr().out
     assert "Il faut désigner un délégué[1]" in out
@@ -190,7 +191,8 @@ def test_rag_ask_search_only_sans_cle(
     index_dir = _setup(tmp_path, monkeypatch, response())
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
-    cli.ask_main(["effacement", "--index-dir", str(index_dir), "--search-only", "--k", "1"])
+    cli.ask_main(["effacement", "--index-dir", str(index_dir), "--search-only", "--k", "1",
+                  "--env-file", str(tmp_path / "absent.env")])
 
     assert "Article 17" in capsys.readouterr().out
 
@@ -219,3 +221,26 @@ def test_rag_ask_lit_la_cle_dans_env(
 
     assert "Oui[1]" in capsys.readouterr().out
     monkeypatch.delenv("ANTHROPIC_API_KEY")  # load_dotenv l'a posée pour tout le processus
+
+
+def test_erreur_api_lisible(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import anthropic
+    import httpx2
+
+    class BrokeGenerator:
+        model = "claude-haiku-5-5"
+
+        def generate(self, question: str, hits: list[Hit]) -> Any:
+            request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+            raise anthropic.BadRequestError(
+                "400", response=httpx2.Response(400, request=request),
+                body={"error": {"message": "Your credit balance is too low"}},
+            )
+
+    index_dir = _setup(tmp_path, monkeypatch, response())
+    monkeypatch.setattr(cli, "make_generator", lambda model: BrokeGenerator())
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+
+    with pytest.raises(SystemExit, match="credit balance is too low"):
+        cli.ask_main(["effacement", "--index-dir", str(index_dir), "--min-similarity", "0",
+                      "--env-file", str(tmp_path / "absent.env")])
