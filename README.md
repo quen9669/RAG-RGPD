@@ -47,5 +47,6 @@ brut (empreinte SHA-256).
 
 ## Documentation
 
+- [Feuille de route](docs/roadmap.md)
 - [Journal des décisions](docs/decisions/README.md)
 - [Fiches sources](docs/sources/README.md)
