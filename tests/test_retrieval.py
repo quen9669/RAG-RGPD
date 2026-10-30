@@ -20,7 +20,7 @@ from fakes import CHUNKS, FakeEmbedder
 @pytest.fixture
 def index_dir(tmp_path: Path) -> Path:
     chunks_path = tmp_path / "chunks.jsonl"
-    chunks_path.write_text("{}\n", encoding="utf-8")
+    chunks_path.write_bytes(b"{}\n")  # octets exacts : write_text écrirait \\r\\n sous Windows
     build_index(CHUNKS, FakeEmbedder(), tmp_path / "index", chunks_path=chunks_path)
     return tmp_path / "index"
 
