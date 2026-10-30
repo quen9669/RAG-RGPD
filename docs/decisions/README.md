@@ -9,3 +9,5 @@ Chaque décision importante du projet a sa fiche : option choisie, options
 | [0002](0002-outil-de-tests.md) | Outil de tests : pytest | 2026-10-29 |
 | [0003](0003-stockage-versionne.md) | Stockage versionné : dossiers datés + manifeste | 2026-10-29 |
 | [0004](0004-client-http.md) | Bibliothèque de téléchargement : httpx | 2026-10-29 |
+| [0005](0005-extraction-du-texte.md) | Extraction du texte : PyMuPDF (PDF) et BeautifulSoup (HTML) | 2026-10-30 |
+| [0006](0006-decoupage-hybride.md) | Découpage hybride : structure, puis paragraphes avec plafond | 2026-10-30 |
