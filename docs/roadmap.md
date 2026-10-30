@@ -60,7 +60,9 @@ Une « fiche de décision » (une trace) qui répond à ces questions :
 
 1. **La trace** : un objet Python rempli à chaque étape du traitement
    (recherche, sélection, appel au LLM, vérification des citations), enregistré
-   en JSONL (une trace par ligne) dans `data/traces/`. Ces traces contiennent
+   en JSONL (une trace par ligne) dans `data/traces/`. Elle part du résultat
+   `Answer` et du journal `data/logs/answers.jsonl` livrés à l'étape 4, en y
+   ajoutant la requête complète, les morceaux écartés et le coût. Ces traces contiennent
    des extraits de documents CNPD, elles restent donc hors de Git comme
    `data/raw/`. Elles servent aussi de « journal des réponses » prévu par la
    gouvernance.
