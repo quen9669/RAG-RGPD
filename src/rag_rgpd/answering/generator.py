@@ -9,7 +9,9 @@ vraie), de la moins chère à la plus fine :
 2. **Dans la consigne** : le modèle ne doit utiliser que les passages fournis
    et répondre exactement « Je ne sais pas. » s'ils ne suffisent pas.
 3. **Après le LLM** : une réponse sans aucune citation est traitée comme un
-   refus. On ne publie jamais une affirmation qu'aucun passage n'appuie.
+   refus. On ne publie jamais une affirmation qu'aucun passage n'appuie. Une
+   citation dont le texte ne se retrouve pas dans le passage désigné (ou qui
+   désigne un passage qui n'a pas été envoyé) entraîne aussi un refus.
 
 Les passages sont envoyés à Claude sous forme de blocs ``search_result`` avec
 les citations activées : c'est l'API qui relie chaque phrase de la réponse au
@@ -19,9 +21,13 @@ le modèle pour recopier correctement des numéros de source.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
+from anthropic.types.beta import BetaMessage
+
+from rag_rgpd.answering.cache import ResponseCache
 from rag_rgpd.retrieval.index import DEFAULT_MIN_SIMILARITY, Hit
 
 DEFAULT_MODEL = "claude-haiku-5-5"
@@ -41,6 +47,7 @@ NO_RELEVANT_PASSAGE = "aucun_passage_pertinent"
 MODEL_INSUFFICIENT = "passages_insuffisants"
 NO_CITATION = "citation_absente"
 SAFETY_REFUSAL = "refus_du_modele"
+UNVERIFIED_CITATION = "citation_non_verifiee"
 
 SYSTEM_PROMPT = """\
 Tu es un assistant qui répond à des questions sur la protection des données \
@@ -66,13 +73,17 @@ class Citation:
     Attributes:
         source_number: numéro du passage dans la liste des sources (à
             partir de 1, comme les marqueurs ``[1]`` de la réponse).
-        chunk_id: identifiant du morceau cité.
+        chunk_id: identifiant du morceau cité (vide si le numéro ne
+            correspond à aucun passage envoyé).
         cited_text: phrase du passage reprise mot pour mot.
+        verified: ``True`` si ``cited_text`` se retrouve bien dans le texte
+            du passage désigné.
     """
 
     source_number: int
     chunk_id: str
     cited_text: str
+    verified: bool = True
 
 
 @dataclass(frozen=True)
@@ -97,6 +108,10 @@ class Answer:
         request: requête envoyée au LLM (consigne et messages), ``{}`` s'il
             n'a pas été appelé.
         params: paramètres utilisés (nombre de passages, seuil, modèle...).
+        usage: tokens comptés par l'API (``input_tokens``,
+            ``output_tokens``, et ceux lus ou écrits dans son cache).
+        from_cache: ``True`` si la réponse vient du cache local des
+            réponses (aucun appel payé).
     """
 
     question: str
@@ -110,6 +125,8 @@ class Answer:
     raw_text: str = ""
     request: dict[str, Any] = field(default_factory=dict)
     params: dict[str, Any] = field(default_factory=dict)
+    usage: dict[str, int] = field(default_factory=dict)
+    from_cache: bool = False
 
     @property
     def cited_numbers(self) -> list[int]:
@@ -138,6 +155,43 @@ def refuse(
         question=question, text=REFUSAL_TEXT, refused=True, refusal_code=code,
         reason=reason, hits=hits or [], **extra,
     )
+
+
+def best_similarity(hits: list[Hit]) -> float:
+    """Similarité du passage le plus proche (0 s'il n'y en a aucun)."""
+    return max((h.similarity for h in hits), default=0.0)
+
+
+def _normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def make_citation(hits: list[Hit], index: int, cited_text: str) -> Citation:
+    """Relie une citation de l'API au morceau qu'elle désigne, et la vérifie.
+
+    L'API garantit en principe que le texte cité vient du passage. On le
+    vérifie quand même : c'est peu coûteux, et cela protège contre une
+    erreur de numérotation de notre côté (passages réordonnés, mauvais
+    décalage). Les espaces sont normalisés avant la comparaison.
+
+    Args:
+        hits: passages envoyés, dans l'ordre de la requête.
+        index: position du passage cité, à partir de 0 (comme l'API).
+        cited_text: texte repris par la citation.
+    """
+    if not 0 <= index < len(hits):
+        return Citation(index + 1, "", cited_text, verified=False)
+    chunk = hits[index].chunk
+    verified = _normalize(cited_text) in _normalize(chunk.text)
+    return Citation(index + 1, chunk.chunk_id, cited_text, verified=verified)
+
+
+def usage_dict(response: Any) -> dict[str, int]:
+    """Tokens consommés, lus dans ``response.usage`` (0 si absent)."""
+    usage = getattr(response, "usage", None)
+    names = ("input_tokens", "output_tokens",
+             "cache_creation_input_tokens", "cache_read_input_tokens")
+    return {name: int(getattr(usage, name, 0) or 0) for name in names}
 
 
 def search_result_blocks(hits: list[Hit]) -> list[dict[str, Any]]:
@@ -178,7 +232,7 @@ def parse_response(
         La réponse, ou un refus si le modèle a refusé ou n'a rien cité.
     """
     model = getattr(response, "model", "")
-    trace = {"model": model, "request": request or {}}
+    trace = {"model": model, "request": request or {}, "usage": usage_dict(response)}
     if response.stop_reason == "refusal":
         return refuse(question, SAFETY_REFUSAL, "le modèle a décliné la demande", hits, **trace)
 
@@ -196,13 +250,9 @@ def parse_response(
         for cite in block.citations or []:
             if getattr(cite, "type", "") != "search_result_location":
                 continue
-            number = cite.search_result_index + 1
-            citations.append(Citation(
-                source_number=number,
-                chunk_id=hits[cite.search_result_index].chunk.chunk_id,
-                cited_text=cite.cited_text,
-            ))
-            numbers.append(number)
+            citation = make_citation(hits, cite.search_result_index, cite.cited_text)
+            citations.append(citation)
+            numbers.append(citation.source_number)
         if numbers:
             parts.append("".join(f"[{n}]" for n in sorted(set(numbers))))
 
@@ -215,6 +265,12 @@ def parse_response(
         # Barrière 3 : une réponse qui ne cite rien n'est pas vérifiable.
         return refuse(question, NO_CITATION,
                       "le modèle a répondu sans citer de source", hits, **trace)
+    unverified = [c for c in citations if not c.verified]
+    if unverified:
+        numbers = ", ".join(f"[{c.source_number}]" for c in unverified)
+        return refuse(question, UNVERIFIED_CITATION,
+                      f"citation impossible à vérifier : {numbers}", hits,
+                      citations=citations, **trace)
     return Answer(
         question=question, text=text, refused=False, hits=hits,
         citations=citations, **trace,
@@ -230,6 +286,7 @@ class ClaudeGenerator:
         *,
         model: str = DEFAULT_MODEL,
         effort: str = "medium",
+        cache: ResponseCache | None = None,
     ) -> None:
         """Prépare le client.
 
@@ -241,6 +298,8 @@ class ClaudeGenerator:
             effort: profondeur de réflexion (``low`` à ``max``). ``medium``
                 suffit pour reformuler des passages fournis ; à mesurer à
                 l'étape 5.
+            cache: cache local des réponses ; ``None`` = toujours appeler
+                l'API.
         """
         if client is None:
             import anthropic
@@ -249,6 +308,7 @@ class ClaudeGenerator:
         self._client = client
         self.model = model
         self.effort = effort
+        self.cache = cache
 
     def generate(self, question: str, hits: list[Hit]) -> Answer:
         """Rédige une réponse citée (voir ``AnswerGenerator.generate``)."""
@@ -272,8 +332,19 @@ class ClaudeGenerator:
             # Si le modèle décline la demande (filtre de sécurité trop
             # prudent), l'API la relance elle-même sur un modèle de secours.
             options = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
-        response = self._client.beta.messages.create(**request, **options)
-        return parse_response(question, hits, response, request)
+        if self.cache is None:
+            response = self._client.beta.messages.create(**request, **options)
+            return parse_response(question, hits, response, request)
+
+        key = self.cache.key({**request, **options})
+        cached = self.cache.get(key)
+        if cached is not None:
+            response = BetaMessage.model_validate(cached)
+        else:
+            response = self._client.beta.messages.create(**request, **options)
+            self.cache.put(key, response.model_dump(mode="json"))
+        answer = parse_response(question, hits, response, request)
+        return replace(answer, from_cache=cached is not None)
 
 
 def answer_question(
@@ -303,7 +374,7 @@ def answer_question(
         "llm_model": getattr(generator, "model", ""),
         "effort": getattr(generator, "effort", ""),
     }
-    best = max((h.similarity for h in hits), default=0.0)
+    best = best_similarity(hits)
     if best < min_similarity:
         return refuse(
             question,

@@ -21,35 +21,9 @@ from rag_rgpd.answering.generator import (
 )
 from rag_rgpd.processing.pipeline import write_chunks
 from rag_rgpd.retrieval.index import Hit
-from fakes import CHUNKS, FakeEmbedder
+from fakes import CHUNKS, FakeClient, FakeEmbedder, response, text_block
 
 HITS = [Hit(chunk=c, similarity=0.8 - i / 10, score=0.03) for i, c in enumerate(CHUNKS)]
-
-
-def text_block(text: str, *cited: tuple[int, str]) -> SimpleNamespace:
-    """Bloc de texte tel que renvoyé par l'API, avec ses citations."""
-    citations = [
-        SimpleNamespace(type="search_result_location", search_result_index=i, cited_text=t)
-        for i, t in cited
-    ]
-    return SimpleNamespace(type="text", text=text, citations=citations or None)
-
-
-def response(*blocks: Any, stop_reason: str = "end_turn") -> SimpleNamespace:
-    return SimpleNamespace(content=list(blocks), stop_reason=stop_reason, model="claude-test")
-
-
-class FakeClient:
-    """Faux client Anthropic : enregistre la requête, renvoie une réponse fixe."""
-
-    def __init__(self, reply: SimpleNamespace) -> None:
-        self.requests: list[dict[str, Any]] = []
-        self.beta = SimpleNamespace(messages=SimpleNamespace(create=self._create))
-        self._reply = reply
-
-    def _create(self, **kwargs: Any) -> SimpleNamespace:
-        self.requests.append(kwargs)
-        return self._reply
 
 
 class ExplodingGenerator:
@@ -155,7 +129,7 @@ def test_haiku_par_defaut_sans_repli() -> None:
 def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reply: SimpleNamespace) -> Path:
     write_chunks(CHUNKS, tmp_path / "chunks.jsonl")
     monkeypatch.setattr(cli, "make_embedder", lambda name: FakeEmbedder(name))
-    monkeypatch.setattr(cli, "make_generator", lambda model: ClaudeGenerator(FakeClient(reply)))
+    monkeypatch.setattr(cli, "make_generator", lambda model, cache=None: ClaudeGenerator(FakeClient(reply)))
     cli.index_main(["--chunks", str(tmp_path / "chunks.jsonl"),
                     "--index-dir", str(tmp_path / "index")])
     return tmp_path / "index"
@@ -238,7 +212,7 @@ def test_erreur_api_lisible(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
             )
 
     index_dir = _setup(tmp_path, monkeypatch, response())
-    monkeypatch.setattr(cli, "make_generator", lambda model: BrokeGenerator())
+    monkeypatch.setattr(cli, "make_generator", lambda model, cache=None: BrokeGenerator())
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
 
     with pytest.raises(SystemExit, match="credit balance is too low"):

@@ -12,9 +12,9 @@ qui fonctionne seul. Avant chaque étape : explication des concepts, puis 2 ou
 ## Phase 2 : Premier assistant qui cite ses sources
 
 3. Extraction du texte des PDF et pages web, nettoyage, découpage en morceaux (faite).
-4. Recherche dans les textes et réponses avec citations : LLM, RAG (en cours).
+4. Recherche dans les textes et réponses avec citations : LLM, RAG (faite).
 
-   **4 bis. Tests et explicabilité dans VS Code** (voir plus bas).
+   **4 bis. Tests et explicabilité dans VS Code** (en cours, voir plus bas).
 
 ## Phase 3 : Mesurer la qualité
 
@@ -88,11 +88,11 @@ Une « fiche de décision » (une trace) qui répond à ces questions :
    non, citations valides ou non). Un cache des réponses du LLM évite de
    payer deux fois le même essai.
 
-### Options d'outils à présenter le moment venu
+### Outils retenus
 
-- Traces : JSONL fait maison, MLflow Tracing, Arize Phoenix (local), Langfuse (auto-hébergé).
-- Notebooks : Jupyter dans VS Code, marimo.
-- Cas de test : fichier YAML ou JSONL lu par `pytest.mark.parametrize`.
+Traces en JSONL fait maison, notebooks Jupyter, cas de test en YAML
+(décision [0010](decisions/0010-outils-d-explicabilite.md)). Mode d'emploi :
+section « Tester et comprendre dans VS Code » du README.
 
 ### Ce que l'étape 4 doit déjà prévoir
 

@@ -1,0 +1,72 @@
+{
+  // Débogage pas à pas (F5). Mettre un point d'arrêt (clic dans la marge, à
+  // gauche des numéros de ligne) par exemple dans :
+  //   - src/rag_rgpd/retrieval/index.py, Searcher.search   (recherche)
+  //   - src/rag_rgpd/answering/generator.py, answer_question (barrière 1)
+  //   - src/rag_rgpd/answering/generator.py, parse_response  (citations)
+  // puis choisir une configuration dans le panneau « Exécuter et déboguer ».
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Question : réponse + fiche de décision",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "rag_rgpd.answering.cli",
+      "args": ["${input:question}", "--explain"],
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONUTF8": "1" },
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Question : recherche seule (gratuit)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "rag_rgpd.answering.cli",
+      "args": ["${input:question}", "--search-only", "--explain"],
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONUTF8": "1" },
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Relire la dernière fiche",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "rag_rgpd.explain.cli",
+      "args": ["last"],
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONUTF8": "1" },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Essais en lot : recherche seule (gratuit)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "rag_rgpd.explain.cli",
+      "args": ["--batch", "--search-only", "--k", "4", "8", "12"],
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONUTF8": "1" },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Tests : fichier ouvert",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-x", "-v"],
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONUTF8": "1" },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ],
+  "inputs": [
+    {
+      "id": "question",
+      "type": "promptString",
+      "description": "Question à poser",
+      "default": "Puis-je demander l'effacement de mes données ?"
+    }
+  ]
+}

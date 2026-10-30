@@ -15,6 +15,7 @@ dependencies = [
     "numpy>=2.5.4",
     "pymupdf>=1.26,<2",
     "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
     "sentence-transformers>=6.2.0",
 ]
 
@@ -23,6 +24,8 @@ rag-ingest = "rag_rgpd.ingestion.cli:main"
 rag-chunk = "rag_rgpd.processing.cli:main"
 rag-index = "rag_rgpd.answering.cli:index_main"
 rag-ask = "rag_rgpd.answering.cli:ask_main"
+rag-trace = "rag_rgpd.explain.cli:trace_main"
+rag-batch = "rag_rgpd.explain.cli:batch_main"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.14.0"]
@@ -33,5 +36,18 @@ dev = [
     "pytest>=9.2.0",
 ]
 
+# Notebooks d'exploration (notebooks/) : `uv sync --group notebooks`.
+notebooks = [
+    "ipykernel>=7.0",
+    "matplotlib>=3.10",
+    "pandas>=2.3",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Trois niveaux de tests (voir README, « Tester et comprendre ») :
+# rapides (par défaut), « index » (vraie base, sans LLM), « llm » (payants).
+markers = [
+    "index: utilise le vrai index data/index/ et BGE-M3 (lent, sans LLM)",
+    "llm: appelle vraiment Claude (coûte de l'argent) ; lancer avec --llm",
+]
