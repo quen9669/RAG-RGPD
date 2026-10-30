@@ -10,11 +10,20 @@ from dataclasses import dataclass
 # insécable, espace fine insécable (avant « ; » et « : » en français), etc.
 # On les remplace par une espace simple pour que la recherche ne les voie
 # pas comme des caractères différents.
-_SPECIAL_SPACES = re.compile(r"[  -   　\t]")
-_ZERO_WIDTH = re.compile(r"[​-‍⁠﻿­]")
+_SPECIAL_SPACES = re.compile(r"[\u00a0\u2000-\u200a\u202f\u205f\u3000\t]")
+_ZERO_WIDTH = re.compile(r"[\u200b-\u200d\u2060\ufeff\u00ad]")
 # Les puces des PDF sont souvent des glyphes de polices « symboles », rangés
 # dans la zone Unicode à usage privé : illisibles une fois extraits.
-_PRIVATE_USE = re.compile(r"[-]")
+_PRIVATE_USE = re.compile(r"[\ue000-\uf8ff]")
+# Puces de liste des PDF (•, ▪, ▫, ◦, ‣...) : on les ramène toutes à « • »,
+# une seule fois, suivie d'une espace (« ▫ ▫ nom » et « •Nom » deviennent
+# « • nom » et « • Nom »).
+_BULLETS = re.compile(r"(?:[•▪▫◦‣∙●○■□➢➤►][ \t\u00a0]*)+")
+# Apostrophes et guillemets typographiques : une seule forme d'apostrophe,
+# pour que « l'article » et « l’article » soient le même mot pour la
+# recherche ; pas d'espace juste à l'intérieur des guillemets anglais.
+_APOSTROPHES = re.compile(r"[’‘ʼ]")
+_QUOTE_INNER_SPACES = re.compile(r"“\s+|\s+”")
 
 
 def clean_text(text: str) -> str:
@@ -26,7 +35,9 @@ def clean_text(text: str) -> str:
        vienne du HTML ou du PDF) ;
     2. suppression des caractères invisibles (espace de largeur nulle,
        trait d'union conditionnel) ;
-    3. puces de polices symboles remplacées par « • » ;
+    3. puces (y compris celles des polices symboles) ramenées à « • »,
+       apostrophes typographiques ramenées à « ' », espaces parasites des
+       guillemets anglais retirées ;
     4. espaces spéciales converties et espaces multiples réduites à une
        seule, sauf les retours à la ligne qui portent la structure (listes).
 
@@ -39,6 +50,9 @@ def clean_text(text: str) -> str:
     text = unicodedata.normalize("NFC", text)
     text = _ZERO_WIDTH.sub("", text)
     text = _PRIVATE_USE.sub("•", text)
+    text = _BULLETS.sub("• ", text)
+    text = _APOSTROPHES.sub("'", text)
+    text = _QUOTE_INNER_SPACES.sub(lambda m: m.group().strip(), text)
     text = _SPECIAL_SPACES.sub(" ", text)
     lines = (re.sub(r" {2,}", " ", line).strip() for line in text.splitlines())
     return "\n".join(line for line in lines if line)

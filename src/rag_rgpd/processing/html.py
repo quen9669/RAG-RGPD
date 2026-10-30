@@ -42,6 +42,16 @@ def _classes(tag: Tag) -> set[str]:
     return {c.removeprefix("oj-") for c in tag.get("class") or []}
 
 
+def _flat(text: str) -> str:
+    """Remplace les retours à la ligne du fichier source par des espaces.
+
+    Dans le XHTML, un retour à la ligne à l'intérieur d'un ``<p>`` ne sert
+    qu'à la présentation du fichier : il ne doit pas couper la ligne de
+    texte (sinon « a) » se retrouve seul sur sa ligne).
+    """
+    return text.replace("\r", " ").replace("\n", " ")
+
+
 def _blocks(soup: BeautifulSoup) -> Iterator[tuple[set[str], str]]:
     """Parcourt le document dans l'ordre et renvoie ses lignes de texte.
 
@@ -65,10 +75,10 @@ def _blocks(soup: BeautifulSoup) -> Iterator[tuple[set[str], str]]:
             # Séparateur vide à l'intérieur d'une cellule : les balises de
             # mise en forme (<span class="italic">) ne doivent pas ajouter
             # d'espace avant une virgule.
-            text = " ".join(cell.get_text("") for cell in cells)
+            text = " ".join(_flat(cell.get_text("")) for cell in cells)
             classes = set().union(*(_classes(p) for p in tag.find_all("p")))
         else:
-            text = tag.get_text("")
+            text = _flat(tag.get_text(""))
             classes = _classes(tag)
         text = clean_text(text)
         if text:

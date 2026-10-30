@@ -102,3 +102,23 @@ def test_pdf_page_vide_ignoree() -> None:
     sections = extract_pdf(_pdf([["Bonjour."], [], ["Au revoir."]]))
 
     assert [s.label for s in sections] == ["Page 1", "Page 3"]
+
+
+def test_clean_text_puces_apostrophes_et_guillemets() -> None:
+    assert clean_text("▫ ▫ nom, ▫ ▫ adresse") == "• nom, • adresse"
+    assert clean_text("•Harmonisation: •Un renforcement") == "• Harmonisation: • Un renforcement"
+    assert clean_text("l’article “ Accountability ”") == "l'article “Accountability”"
+
+
+def test_acte_ue_retours_a_la_ligne_du_fichier_ignores() -> None:
+    html = (
+        '<html><body><p class="ti-art">Article 6</p>'
+        '<p class="normal">1. Le traitement est licite si:</p>'
+        '<table><tr><td><p class="normal">a)\n</p></td>'
+        '<td><p class="normal">la personne\nconcernée a consenti;</p></td></tr></table>'
+        "</body></html>"
+    ).encode()
+
+    [article] = extract_eu_act(html)
+
+    assert article.paragraphs[0].text.splitlines()[1] == "a) la personne concernée a consenti;"
