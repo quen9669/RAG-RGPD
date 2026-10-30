@@ -34,6 +34,17 @@ uv run rag-ingest catalogue --max-pages 1   # essai rapide
 Les fichiers bruts vont dans `data/raw/` (non publié, voir les licences) et
 chaque téléchargement est tracé dans `data/manifest.jsonl`.
 
+## Extraire et découper les textes
+
+```bash
+uv run rag-chunk                    # dernière version de chaque document du manifeste
+uv run rag-chunk --max-chars 1000   # morceaux plus petits
+```
+
+Le résultat va dans `data/processed/chunks.jsonl` (non publié) : un morceau
+par ligne, avec de quoi le citer (article ou page) et remonter au fichier
+brut (empreinte SHA-256).
+
 ## Documentation
 
 - [Journal des décisions](docs/decisions/README.md)

@@ -19,3 +19,7 @@ __pycache__/
 # certaines licences, comme celle de la CNPD, interdisent la rediffusion).
 # Seul data/manifest.jsonl est versionné.
 data/raw/
+
+# Textes extraits et découpés : ils reprennent le contenu des documents
+# (dont la CNPD), donc même règle. Ils se reconstruisent avec `rag-chunk`.
+data/processed/
