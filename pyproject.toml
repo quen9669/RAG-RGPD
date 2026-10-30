@@ -8,14 +8,21 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "anthropic>=2.3.0",
     "beautifulsoup4>=4.15.0",
     "httpx>=0.28.1",
+    "lancedb>=0.41.0",
+    "numpy>=2.5.4",
     "pymupdf>=1.26,<2",
+    "python-dotenv>=1.2.4",
+    "sentence-transformers>=6.2.0",
 ]
 
 [project.scripts]
 rag-ingest = "rag_rgpd.ingestion.cli:main"
 rag-chunk = "rag_rgpd.processing.cli:main"
+rag-index = "rag_rgpd.answering.cli:index_main"
+rag-ask = "rag_rgpd.answering.cli:ask_main"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.14.0"]

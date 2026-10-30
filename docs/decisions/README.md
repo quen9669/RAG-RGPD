@@ -11,3 +11,6 @@ Chaque décision importante du projet a sa fiche : option choisie, options
 | [0004](0004-client-http.md) | Bibliothèque de téléchargement : httpx | 2026-10-29 |
 | [0005](0005-extraction-du-texte.md) | Extraction du texte : PyMuPDF (PDF) et BeautifulSoup (HTML) | 2026-10-30 |
 | [0006](0006-decoupage-hybride.md) | Découpage hybride : structure, puis paragraphes avec plafond | 2026-10-30 |
+| [0007](0007-modele-d-embedding.md) | Modèle d'embedding : BGE-M3 en local | 2026-10-30 |
+| [0008](0008-base-de-recherche-hybride.md) | Base de recherche : LanceDB, recherche hybride | 2026-10-30 |
+| [0009](0009-llm-et-citations.md) | LLM : Claude par API, citations et règle de refus | 2026-10-30 |

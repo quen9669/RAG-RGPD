@@ -23,3 +23,8 @@ data/raw/
 # Textes extraits et découpés : ils reprennent le contenu des documents
 # (dont la CNPD), donc même règle. Ils se reconstruisent avec `rag-chunk`.
 data/processed/
+
+# Index de recherche (vecteurs + texte des morceaux) et journal des réponses
+# (questions et extraits cités) : même règle, reconstructibles ou personnels.
+data/index/
+data/logs/
