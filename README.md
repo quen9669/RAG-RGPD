@@ -45,6 +45,23 @@ Le résultat va dans `data/processed/chunks.jsonl` (non publié) : un morceau
 par ligne, avec de quoi le citer (article ou page) et remonter au fichier
 brut (empreinte SHA-256).
 
+## Poser une question
+
+```bash
+uv run rag-index                      # encode les morceaux (BGE-M3) -> data/index/
+uv run rag-ask --search-only "article 17"   # passages retrouvés, sans LLM ni clé
+uv run rag-ask "Puis-je demander l'effacement de mes données ?"
+```
+
+Le premier `rag-index` télécharge le modèle BGE-M3 (environ 2 Go). Pour
+`rag-ask`, il faut une clé d'API Anthropic dans la variable
+`ANTHROPIC_API_KEY` (PowerShell : `$env:ANTHROPIC_API_KEY = "sk-ant-..."`,
+ou `setx ANTHROPIC_API_KEY "sk-ant-..."` pour la garder). Ne jamais
+l'écrire dans un fichier versionné.
+
+La réponse cite ses sources (`[1]`, `[2]`...) ou répond « Je ne sais pas. »
+avec la raison. Chaque question est tracée dans `data/logs/answers.jsonl`.
+
 ## Documentation
 
 - [Feuille de route](docs/roadmap.md)
