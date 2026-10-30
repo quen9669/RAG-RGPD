@@ -41,7 +41,8 @@ Trois barrières contre l'hallucination :
 
 ## Conséquences
 
-- Clé `ANTHROPIC_API_KEY` nécessaire, coût à l'usage (faible pour un usage
+- Clé `ANTHROPIC_API_KEY` nécessaire, rangée dans le fichier `.env` du
+  projet (exclu de Git, lu par `rag-ask`), coût à l'usage (faible pour un usage
   personnel). `rag-ask --search-only` fonctionne sans clé.
 - Les passages (dont des extraits CNPD) sont envoyés à l'API pour
   rédiger la réponse : usage privé, sans rediffusion.

@@ -54,11 +54,13 @@ uv run rag-ask "Puis-je demander l'effacement de mes données ?"
 uv run rag-ask --model claude-sonnet-5-5 "..."   # modèle plus fort si besoin
 ```
 
-Le premier `rag-index` télécharge le modèle BGE-M3 (environ 2 Go). Pour
-`rag-ask`, il faut une clé d'API Anthropic dans la variable
-`ANTHROPIC_API_KEY` (PowerShell : `$env:ANTHROPIC_API_KEY = "sk-ant-..."`,
-ou `setx ANTHROPIC_API_KEY "sk-ant-..."` pour la garder). Ne jamais
-l'écrire dans un fichier versionné.
+Le premier `rag-index` télécharge le modèle BGE-M3 (environ 2 Go).
+
+Pour `rag-ask`, il faut une clé d'API Anthropic. Elle reste propre à ce
+projet : copier `.env.example` en `.env` à la racine du dépôt et remplacer
+`sk-ant-...` par la vraie clé. Le fichier `.env` est exclu de Git ; ne
+jamais écrire la clé ailleurs. Une variable `ANTHROPIC_API_KEY` déjà
+définie dans le terminal reste prioritaire.
 
 La réponse cite ses sources (`[1]`, `[2]`...) ou répond « Je ne sais pas. »
 avec la raison. Chaque question est tracée dans `data/logs/answers.jsonl`.

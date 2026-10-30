@@ -15,6 +15,8 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from rag_rgpd.answering.generator import (
     DEFAULT_MODEL,
     Answer,
@@ -116,7 +118,12 @@ def ask_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--search-only", action="store_true",
                         help="affiche les passages retrouvés, sans appeler le LLM")
     parser.add_argument("--log", type=Path, default=Path("data/logs/answers.jsonl"))
+    parser.add_argument("--env-file", type=Path, default=Path(".env"),
+                        help="fichier local contenant ANTHROPIC_API_KEY")
     args = parser.parse_args(argv)
+    # La clé d'API vit dans .env, propre à ce projet et exclu de Git. Une
+    # variable déjà définie dans le terminal reste prioritaire.
+    load_dotenv(args.env_file, override=False, encoding="utf-8")
 
     searcher = Searcher(args.index_dir, make_embedder(args.embedding_model))
     hits = searcher.search(args.question, k=args.k)
@@ -128,8 +135,8 @@ def ask_main(argv: list[str] | None = None) -> None:
         return
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        sys.exit("Clé manquante : définir ANTHROPIC_API_KEY (voir README), "
-                 "ou utiliser --search-only.")
+        sys.exit("Clé manquante : ajouter ANTHROPIC_API_KEY=... dans le fichier .env "
+                 "(voir README), ou utiliser --search-only.")
     answer = answer_question(
         args.question, hits, make_generator(args.model),
         min_similarity=args.min_similarity,

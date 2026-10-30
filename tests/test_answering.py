@@ -200,4 +200,22 @@ def test_rag_ask_sans_cle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
     with pytest.raises(SystemExit, match="ANTHROPIC_API_KEY"):
-        cli.ask_main(["effacement", "--index-dir", str(index_dir)])
+        cli.ask_main(["effacement", "--index-dir", str(index_dir),
+                      "--env-file", str(tmp_path / "absent.env")])
+
+
+def test_rag_ask_lit_la_cle_dans_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    index_dir = _setup(tmp_path, monkeypatch, response(
+        text_block("Oui", (0, "droit d'obtenir"))))
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text("ANTHROPIC_API_KEY=sk-ant-test\n", encoding="utf-8")
+
+    cli.ask_main(["effacement", "--index-dir", str(index_dir), "--k", "1",
+                  "--min-similarity", "0", "--env-file", str(env_file),
+                  "--log", str(tmp_path / "log.jsonl")])
+
+    assert "Oui[1]" in capsys.readouterr().out
+    monkeypatch.delenv("ANTHROPIC_API_KEY")  # load_dotenv l'a posée pour tout le processus
