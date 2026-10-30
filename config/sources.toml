@@ -6,8 +6,13 @@
 id = "rgpd-fr"
 source = "eur-lex"
 title = "Règlement (UE) 2016/679 (RGPD), texte en français"
-url = "https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32016R0679"
+# Accès machine officiel (Cellar, Office des publications), car le site
+# EUR-Lex renvoie une page vide aux programmes (protection anti-robots).
+# Page de référence pour les citations :
+# https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32016R0679
+url = "https://publications.europa.eu/resource/celex/32016R0679"
 licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+headers = { Accept = "application/xhtml+xml", Accept-Language = "fra" }
 
 [[documents]]
 id = "cnpd-formation-notions-elementaires"

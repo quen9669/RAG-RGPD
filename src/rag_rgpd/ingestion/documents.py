@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import tomllib
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -15,6 +15,7 @@ from rag_rgpd.ingestion.storage import ManifestEntry, RawStore
 # plutôt que de l'URL, car les URL d'EUR-Lex ne finissent pas par ".html".
 _EXTENSIONS = {
     "text/html": ".html",
+    "application/xhtml+xml": ".html",
     "application/pdf": ".pdf",
     "application/json": ".json",
     "application/xml": ".xml",
@@ -32,6 +33,8 @@ class DocumentSource:
         title: titre lisible du document.
         url: adresse de téléchargement.
         licence: licence ou conditions d'usage relevées (voir docs/sources/).
+        headers: en-têtes HTTP propres à ce document, par exemple ``Accept``
+            et ``Accept-Language`` pour demander un format et une langue.
     """
 
     id: str
@@ -39,6 +42,7 @@ class DocumentSource:
     title: str
     url: str
     licence: str
+    headers: dict[str, str] = field(default_factory=dict)
 
 
 def load_sources(path: Path) -> list[DocumentSource]:
@@ -97,7 +101,7 @@ def ingest_documents(
     """
     results: list[ManifestEntry | None] = []
     for doc in documents:
-        response = client.get(doc.url)
+        response = client.get(doc.url, headers=doc.headers or None)
         content_type = response.headers.get("content-type", "application/octet-stream")
         results.append(
             store.save(

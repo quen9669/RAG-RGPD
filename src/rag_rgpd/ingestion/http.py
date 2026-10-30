@@ -21,6 +21,15 @@ class RobotsDisallowedError(RuntimeError):
     """Levée quand le robots.txt du site interdit l'URL demandée."""
 
 
+class EmptyResponseError(RuntimeError):
+    """Levée quand le serveur répond « OK » mais sans contenu exploitable.
+
+    Cas typique : une protection anti-robots qui renvoie un code 202 et un
+    corps vide. Sans cette vérification, un fichier vide serait enregistré
+    comme une nouvelle version valide du document.
+    """
+
+
 class PoliteClient:
     """Enveloppe autour de ``httpx.Client`` qui moissonne poliment.
 
@@ -57,24 +66,37 @@ class PoliteClient:
         self._robots: dict[str, RobotFileParser] = {}
         self._last_request: dict[str, float] = {}
 
-    def get(self, url: str, params: dict[str, str | int] | None = None) -> httpx.Response:
+    def get(
+        self,
+        url: str,
+        params: dict[str, str | int] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> httpx.Response:
         """Télécharge ``url`` en respectant robots.txt et le délai par hôte.
 
         Args:
             url: adresse à télécharger.
             params: paramètres de requête (``?cle=valeur``) éventuels.
+            headers: en-têtes HTTP en plus (ex. ``Accept`` pour choisir le format).
 
         Returns:
-            La réponse HTTP, dont le statut a été vérifié (2xx).
+            La réponse HTTP, avec un statut 200 et un contenu non vide.
 
         Raises:
             RobotsDisallowedError: si robots.txt interdit l'URL.
             httpx.HTTPStatusError: si le serveur répond par une erreur.
+            EmptyResponseError: si la réponse est vide ou n'est pas un 200
+                (ex. 202 renvoyé par une protection anti-robots).
         """
         if not self._allowed(url):
             raise RobotsDisallowedError(f"robots.txt interdit : {url}")
-        response = self._throttled_get(url, params=params)
+        response = self._throttled_get(url, params=params, headers=headers)
         response.raise_for_status()
+        if response.status_code != 200 or not response.content:
+            raise EmptyResponseError(
+                f"réponse inexploitable (statut {response.status_code}, "
+                f"{len(response.content)} octets) : {url}"
+            )
         return response
 
     def close(self) -> None:
@@ -103,7 +125,10 @@ class PoliteClient:
         return self._robots[host].can_fetch(USER_AGENT, url)
 
     def _throttled_get(
-        self, url: str, params: dict[str, str | int] | None = None
+        self,
+        url: str,
+        params: dict[str, str | int] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> httpx.Response:
         """Fait la requête après avoir attendu le délai minimal pour cet hôte."""
         host = urlsplit(url).netloc
@@ -113,6 +138,6 @@ class PoliteClient:
             if remaining > 0:
                 self._sleep(remaining)
         try:
-            return self._client.get(url, params=params)
+            return self._client.get(url, params=params, headers=headers)
         finally:
             self._last_request[host] = self._clock()

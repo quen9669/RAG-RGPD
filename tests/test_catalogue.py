@@ -41,5 +41,5 @@ def test_instantane_trie_et_trace(make_client, tmp_path: Path) -> None:
     )
     assert entry is not None
     assert entry.path == "raw/data-public-lu/2026-10-29/catalogue.json"
-    contenu = json.loads((tmp_path / entry.path).read_text())
+    contenu = json.loads((tmp_path / entry.path).read_text(encoding="utf-8"))
     assert [d["id"] for d in contenu] == ["a", "b", "c"]

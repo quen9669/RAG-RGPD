@@ -12,9 +12,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import httpx
+
 from rag_rgpd.ingestion.catalogue import ingest_catalogue
 from rag_rgpd.ingestion.documents import ingest_documents, load_sources
-from rag_rgpd.ingestion.http import PoliteClient
+from rag_rgpd.ingestion.http import EmptyResponseError, PoliteClient, RobotsDisallowedError
 from rag_rgpd.ingestion.storage import RawStore
 
 
@@ -40,8 +42,13 @@ def main(argv: list[str] | None = None) -> None:
 
     with PoliteClient(min_delay=args.delay) as client:
         if args.command == "documents":
-            sources = load_sources(args.sources)
-            for doc, entry in zip(sources, ingest_documents(sources, client, store)):
+            # Un document à la fois : l'échec d'une source ne bloque pas les autres.
+            for doc in load_sources(args.sources):
+                try:
+                    [entry] = ingest_documents([doc], client, store)
+                except (RobotsDisallowedError, EmptyResponseError, httpx.HTTPError) as error:
+                    print(f"{doc.id}: ÉCHEC, {error}")
+                    continue
                 status = f"nouveau -> {entry.path}" if entry else "inchangé"
                 print(f"{doc.id}: {status}")
         else:

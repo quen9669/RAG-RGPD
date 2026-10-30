@@ -25,7 +25,7 @@ def test_le_fichier_sources_du_projet_est_valide() -> None:
 def test_identifiants_en_double_refuses(tmp_path: Path) -> None:
     entree = 'id = "a"\nsource = "s"\ntitle = "t"\nurl = "https://x.lu"\nlicence = "l"\n'
     fichier = tmp_path / "sources.toml"
-    fichier.write_text(f"[[documents]]\n{entree}\n[[documents]]\n{entree}")
+    fichier.write_text(f"[[documents]]\n{entree}\n[[documents]]\n{entree}", encoding="utf-8")
     with pytest.raises(ValueError, match="double"):
         load_sources(fichier)
 
@@ -42,7 +42,9 @@ def test_ingestion_de_bout_en_bout(make_client, tmp_path: Path) -> None:
     sources = tmp_path / "sources.toml"
     sources.write_text(
         '[[documents]]\nid = "guide"\nsource = "cnpd"\ntitle = "Guide"\n'
-        'url = "https://exemple.lu/guide"\nlicence = "privé"\n'
+        'url = "https://exemple.lu/guide"\nlicence = "privé"\n',
+        # Encodage explicite : sous Windows, le défaut (cp1252) casse le « é ».
+        encoding="utf-8",
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
