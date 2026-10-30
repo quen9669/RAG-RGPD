@@ -23,6 +23,8 @@ Dans VS Code, choisir l'interpréteur `.venv` (commande « Python: Select Interp
 uv run pytest
 ```
 
+Trois niveaux, voir « Tester et comprendre dans VS Code » plus bas.
+
 ## Récupérer les données
 
 ```bash
@@ -63,7 +65,86 @@ jamais écrire la clé ailleurs. Une variable `ANTHROPIC_API_KEY` déjà
 définie dans le terminal reste prioritaire.
 
 La réponse cite ses sources (`[1]`, `[2]`...) ou répond « Je ne sais pas. »
-avec la raison. Chaque question est tracée dans `data/logs/answers.jsonl`.
+avec la raison. Chaque question est tracée dans `data/logs/answers.jsonl`
+(journal des réponses) et `data/traces/traces.jsonl` (fiche de décision complète).
+
+## Tester et comprendre dans VS Code
+
+### La fiche de décision
+
+Chaque question laisse une « fiche de décision » dans
+`data/traces/traces.jsonl` (non publiée : elle contient des extraits). Pour
+l'afficher :
+
+```bash
+uv run rag-ask --explain "Puis-je demander l'effacement de mes données ?"
+uv run rag-ask --explain --show-prompt "..."    # + texte exact envoyé au modèle
+uv run rag-ask --search-only --explain "article 17"   # gratuit, sans LLM
+uv run rag-trace                 # relire la dernière fiche
+uv run rag-trace --list          # les 20 dernières questions
+uv run rag-trace 20261030-1015   # une fiche précise (début de l'identifiant)
+```
+
+La fiche répond, dans l'ordre : quels paramètres ; quels passages (rang,
+similarité, rang dans la recherche par le sens et par mots-clés, passages
+écartés juste après la coupure `k`) ; la barrière de similarité est-elle
+passée ; qu'a reçu le modèle ; qu'a-t-il répondu ; chaque citation reliée à
+son passage et vérifiée ; la décision et, en cas de refus, quelle barrière a
+décidé ; le temps, les tokens et le coût estimé.
+
+### Les tests, à trois niveaux
+
+| Commande | Ce qui tourne | Coût |
+|---|---|---|
+| `uv run pytest` | tests rapides : faux modèle d'embedding, faux LLM | gratuit, quelques secondes |
+| `uv run pytest --index -m index` | les cas de `tests/cases/questions.yaml` sur le vrai index, sans LLM | gratuit, ~1 min (chargement de BGE-M3) |
+| `uv run pytest --llm -m llm` | les mêmes cas avec Claude | ~0,001 $ par cas avec Haiku |
+
+Ajouter `-k effacement` pour un seul cas. Dans le panneau **Testing** de
+VS Code (icône de fiole), chaque cas apparaît sous son nom ; les niveaux
+non demandés apparaissent « sautés » avec la commande pour les lancer. En
+cas d'échec, pytest affiche la fiche de décision complète.
+
+Pour ajouter un cas, compléter `tests/cases/questions.yaml` (format expliqué
+en tête du fichier). Un défaut connu se note avec `defaut_connu` : le test
+devient un « échec attendu » au lieu de bloquer la suite.
+
+### Les essais en lot
+
+```bash
+uv run rag-batch --search-only --k 4 8 12              # gratuit
+uv run rag-batch --k 8 --min-similarity 0.40 0.45      # avec Claude
+uv run rag-batch --model claude-haiku-5-5 claude-sonnet-5-5 --only effacement delegue
+```
+
+Chaque cas de test est lancé avec chaque combinaison de réglages. Le tableau
+complet va dans `data/batches/` (CSV, s'ouvre dans Excel), un résumé
+s'affiche, et chaque essai a sa fiche (`rag-trace <id>`). Les réponses de
+Claude sont gardées dans un cache local (`data/cache/llm/`) : relancer le
+même essai ne coûte rien (`--no-cache` pour forcer un nouvel appel).
+
+### Débogage pas à pas et tâches
+
+- **F5** (panneau « Exécuter et déboguer ») : poser une question sous le
+  débogueur. Mettre d'abord un point d'arrêt (clic à gauche du numéro de
+  ligne), par exemple dans `Searcher.search` (recherche), `answer_question`
+  (barrière de similarité) ou `parse_response` (citations). Les
+  configurations sont dans `.vscode/launch.json`.
+- **Ctrl+Maj+P → « Tasks: Run Task »** : lancements fréquents (tests,
+  question avec fiche, lots, reconstruire l'index), dans `.vscode/tasks.json`.
+
+### Les notebooks
+
+```bash
+uv sync --group notebooks
+```
+
+Puis ouvrir un cahier de `notebooks/` et choisir le noyau `.venv` :
+
+- `01_explorer_une_question.ipynb` : passages, scores et graphique pour une
+  question ; comparaison de plusieurs `k` et du seuil ;
+- `02_relire_traces_et_lots.ipynb` : toutes les fiches en tableau, refus par
+  barrière, coût total, dernier essai en lot.
 
 ## Documentation
 

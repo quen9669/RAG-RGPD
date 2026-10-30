@@ -1,0 +1,71 @@
+{
+  // Lancements fréquents : Ctrl+Maj+P, « Tasks: Run Task », puis choisir.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Tests rapides",
+      "type": "shell",
+      "command": "uv run pytest",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Tests sur le vrai index (sans LLM, ~1 min)",
+      "type": "shell",
+      "command": "uv run pytest --index -m index",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Tests avec Claude (payant)",
+      "type": "shell",
+      "command": "uv run pytest --llm -m llm",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Poser une question (avec fiche)",
+      "type": "shell",
+      "command": "uv run rag-ask \"${input:question}\" --explain",
+      "problemMatcher": []
+    },
+    {
+      "label": "Recherche seule (avec fiche, gratuit)",
+      "type": "shell",
+      "command": "uv run rag-ask \"${input:question}\" --search-only --explain",
+      "problemMatcher": []
+    },
+    {
+      "label": "Relire la dernière fiche",
+      "type": "shell",
+      "command": "uv run rag-trace",
+      "problemMatcher": []
+    },
+    {
+      "label": "Essais en lot : recherche seule (k = 4, 8, 12)",
+      "type": "shell",
+      "command": "uv run rag-batch --search-only --k 4 8 12",
+      "problemMatcher": []
+    },
+    {
+      "label": "Essais en lot : avec Claude (payant, cache activé)",
+      "type": "shell",
+      "command": "uv run rag-batch",
+      "problemMatcher": []
+    },
+    {
+      "label": "Reconstruire l'index",
+      "type": "shell",
+      "command": "uv run rag-index",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "question",
+      "type": "promptString",
+      "description": "Question à poser",
+      "default": "Puis-je demander l'effacement de mes données ?"
+    }
+  ]
+}

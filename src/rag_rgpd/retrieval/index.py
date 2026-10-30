@@ -273,3 +273,37 @@ class Searcher:
             )
             for row in rows
         ]
+
+    def ranks(self, question: str, *, depth: int = 50) -> dict[str, tuple[int | None, int | None]]:
+        """Rang de chaque passage dans chacune des deux recherches, avant fusion.
+
+        Sert à expliquer un classement : un passage peut remonter parce qu'il
+        est proche par le sens (rang « sens »), parce qu'il contient les mots
+        de la question (rang « mots »), ou les deux. Ces deux recherches
+        supplémentaires ne servent qu'à l'explication, elles ne changent pas
+        le résultat de ``search``.
+
+        Args:
+            question: question en langage naturel.
+            depth: profondeur examinée dans chaque liste ; au-delà, le rang
+                vaut ``None``.
+
+        Returns:
+            Pour chaque ``chunk_id`` vu : (rang par le sens, rang par mots-clés),
+            à partir de 1.
+        """
+        query_vector = self._embedder.embed([question])[0]
+        by_meaning = self._table.search(query_vector.tolist()).limit(depth).to_list()
+        try:
+            by_words = self._table.search(question, query_type="fts").limit(depth).to_list()
+        except ValueError:
+            # Question sans aucun mot indexable (que des mots vides) : la
+            # recherche plein texte n'a rien à chercher.
+            by_words = []
+        result: dict[str, tuple[int | None, int | None]] = {}
+        for rank, row in enumerate(by_meaning, start=1):
+            result[row["chunk_id"]] = (rank, None)
+        for rank, row in enumerate(by_words, start=1):
+            meaning, _ = result.get(row["chunk_id"], (None, None))
+            result[row["chunk_id"]] = (meaning, rank)
+        return result

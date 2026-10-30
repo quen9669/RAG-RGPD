@@ -1,0 +1,16 @@
+{
+  // Panneau « Testing » (fiole) : découvre les tests pytest du dossier tests/.
+  // Par défaut, seuls les tests rapides tournent ; les tests sur le vrai index
+  // et ceux qui appellent Claude apparaissent « sautés » (voir README).
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+  // Interpréteur créé par `uv sync`.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+  // Les textes (RGPD, CNPD) contiennent des « » et des accents : UTF-8 partout,
+  // y compris dans le terminal intégré sous Windows.
+  "files.encoding": "utf8",
+  "terminal.integrated.env.windows": { "PYTHONUTF8": "1" },
+  // Les notebooks s'exécutent depuis la racine du dépôt (accès à data/ et .env).
+  "jupyter.notebookFileRoot": "${workspaceFolder}"
+}

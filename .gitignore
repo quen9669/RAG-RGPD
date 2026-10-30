@@ -14,6 +14,9 @@ __pycache__/
 # Réglages personnels de l'éditeur
 .vscode/*
 !.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
 
 # Fichiers bruts téléchargés : jamais publiés (le dépôt est public et
 # certaines licences, comme celle de la CNPD, interdisent la rediffusion).
@@ -28,3 +31,9 @@ data/processed/
 # (questions et extraits cités) : même règle, reconstructibles ou personnels.
 data/index/
 data/logs/
+
+# Fiches de décision, cache des réponses du LLM et tableaux d'essais en lot
+# (étape 4 bis) : ils reprennent des extraits des documents, même règle.
+data/traces/
+data/cache/
+data/batches/

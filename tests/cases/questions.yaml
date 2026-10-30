@@ -1,0 +1,78 @@
+# Cas de test « de comportement » (étape 4 bis), lus par :
+#   - tests/test_behaviour.py (un test par cas, visible dans le panneau Testing de VS Code)
+#   - uv run rag-batch (essais en lot, tableau comparatif)
+#
+# Champs :
+#   id            nom court, unique (devient le nom du test)
+#   question      la question posée
+#   sources       au moins un passage de l'une de ces sources doit être retrouvé :
+#                 étiquette (« Article 17 » couvre « Article 17, paragraphe 1 »)
+#                 ou identifiant de document (voir config/sources.toml)
+#   rang_max      ... parmi les N premiers passages (par défaut : tous ceux envoyés, k)
+#   refus         true si l'assistant doit répondre « je ne sais pas »
+#   defaut_connu  texte non vide = défaut connu : le test est un « échec attendu »
+#                 (xfail) au lieu de faire échouer toute la suite. Le retirer une
+#                 fois le défaut corrigé.
+#
+# Ces cas sont la première version du jeu d'évaluation de l'étape 5 : ajouter ici
+# chaque question qui a surpris lors d'un essai.
+
+- id: donnee-sensible
+  question: Qu'est-ce qu'une donnée sensible ?
+  sources: [Article 9]
+
+- id: effacement
+  question: Puis-je demander l'effacement de mes données ?
+  sources: [Article 17]
+  rang_max: 3
+
+- id: droit-a-l-oubli
+  question: Le droit à l'oubli existe-t-il dans le RGPD ?
+  sources: [Article 17]
+
+- id: article-17-mot-cle
+  question: article 17
+  sources: ["Article 17, paragraphe 1"]
+  rang_max: 3
+  defaut_connu: >-
+    La recherche par mots-clés classe mal « article 17 » : le paragraphe 1
+    arrive en 8e position (essai du 30/10/2026). Piste : filtrer sur l'étiquette.
+
+- id: bases-legales
+  question: Sur quelles bases légales peut-on traiter des données personnelles ?
+  sources: [Article 6]
+  rang_max: 3
+
+- id: delegue
+  question: Quand faut-il désigner un délégué à la protection des données ?
+  sources: [Article 37]
+  rang_max: 3
+
+- id: droit-d-acces
+  question: Comment savoir quelles données une entreprise détient sur moi ?
+  sources: [Article 15]
+
+- id: sous-traitant
+  question: Quelles sont les obligations d'un sous-traitant ?
+  sources: [Article 28, cnpd-brochure-responsable-sous-traitant]
+
+- id: violation-delai
+  question: Dans quel délai faut-il notifier une violation de données à l'autorité ?
+  sources: [Article 33]
+  rang_max: 3
+
+- id: consentement-enfant
+  question: À partir de quel âge un enfant peut-il consentir seul à un service en ligne ?
+  sources: [Article 8]
+
+- id: portabilite
+  question: Puis-je récupérer mes données pour les transmettre à un autre service ?
+  sources: [Article 20]
+
+- id: hors-sujet-geographie
+  question: Quelle est la capitale du Pérou ?
+  refus: true
+
+- id: hors-sujet-cuisine
+  question: Comment réussir une pâte à crêpes ?
+  refus: true

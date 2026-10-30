@@ -3,6 +3,8 @@
 import hashlib
 import re
 import unicodedata
+from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 
@@ -68,3 +70,52 @@ CHUNKS = [
     make_chunk(4, "Page 3", "", "Brochure : vos droits en tant que citoyen.",
                document_id="brochure", page_start=3, page_end=4),
 ]
+
+
+def text_block(text: str, *cited: tuple[int, str]) -> SimpleNamespace:
+    """Bloc de texte tel que renvoyé par l'API, avec ses citations."""
+    citations = [
+        SimpleNamespace(type="search_result_location", search_result_index=i, cited_text=t)
+        for i, t in cited
+    ]
+    return SimpleNamespace(type="text", text=text, citations=citations or None)
+
+
+def response(*blocks: Any, stop_reason: str = "end_turn", model: str = "claude-test",
+             input_tokens: int = 0, output_tokens: int = 0) -> SimpleNamespace:
+    usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
+    return SimpleNamespace(content=list(blocks), stop_reason=stop_reason, model=model,
+                           usage=usage)
+
+
+class FakeClient:
+    """Faux client Anthropic : enregistre la requête, renvoie une réponse fixe."""
+
+    def __init__(self, reply: SimpleNamespace) -> None:
+        self.requests: list[dict[str, Any]] = []
+        self.beta = SimpleNamespace(messages=SimpleNamespace(create=self._create))
+        self._reply = reply
+
+    def _create(self, **kwargs: Any) -> SimpleNamespace:
+        self.requests.append(kwargs)
+        return self._reply
+
+
+class FakeGenerator:
+    """Faux LLM : cite le début du premier passage reçu, sans réseau ni coût.
+
+    Assez pour tester toute la chaîne (trace, citations, refus, lots) sans
+    clé d'API. Les tests qui appellent le vrai Claude sont marqués ``llm``.
+    """
+
+    model = "claude-haiku-5-5"
+    effort = "medium"
+
+    def generate(self, question: str, hits: list) -> Any:
+        from rag_rgpd.answering.generator import parse_response
+
+        first = hits[0].chunk.text[:40]
+        reply = response(text_block("Selon le texte, " + first, (0, first)),
+                         model=self.model, input_tokens=2000, output_tokens=100)
+        return parse_response(question, hits, reply, {"model": self.model, "system": "consigne",
+                                                       "messages": []})
