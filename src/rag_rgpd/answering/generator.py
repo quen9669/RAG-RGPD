@@ -24,7 +24,14 @@ from typing import Any, Protocol
 
 from rag_rgpd.retrieval.index import DEFAULT_MIN_SIMILARITY, Hit
 
-DEFAULT_MODEL = "claude-opus-5-5"
+DEFAULT_MODEL = "claude-haiku-5-5"
+"""Le moins cher pour commencer (environ 0,001 $ par question). On montera
+vers ``claude-sonnet-5-5`` ou ``claude-opus-5-5`` si la qualité ne suit pas
+(mesure à l'étape 5)."""
+
+FALLBACK_MODELS = {"claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1"}
+"""Modèles qui acceptent le repli automatique côté serveur (Haiku ne
+l'accepte pas : la requête serait rejetée)."""
 
 REFUSAL_TEXT = "Je ne sais pas."
 
@@ -260,13 +267,12 @@ class ClaudeGenerator:
                 }
             ],
         }
-        response = self._client.beta.messages.create(
-            **request,
+        options: dict[str, Any] = {}
+        if self.model in FALLBACK_MODELS:
             # Si le modèle décline la demande (filtre de sécurité trop
             # prudent), l'API la relance elle-même sur un modèle de secours.
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-        )
+            options = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
+        response = self._client.beta.messages.create(**request, **options)
         return parse_response(question, hits, response, request)
 
 

@@ -143,6 +143,15 @@ def test_requete_claude() -> None:
                              "llm_model": "claude-opus-5-5", "effort": "medium"}
 
 
+def test_haiku_par_defaut_sans_repli() -> None:
+    client = FakeClient(response(text_block("Oui", (0, "a consenti"))))
+
+    ClaudeGenerator(client).generate("q", HITS[:1])
+
+    assert client.requests[0]["model"] == "claude-haiku-5-5"
+    assert "fallbacks" not in client.requests[0]
+
+
 def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reply: SimpleNamespace) -> Path:
     write_chunks(CHUNKS, tmp_path / "chunks.jsonl")
     monkeypatch.setattr(cli, "make_embedder", lambda name: FakeEmbedder(name))

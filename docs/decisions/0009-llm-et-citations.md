@@ -12,13 +12,17 @@ des passages retrouvés. Il doit citer précisément ses sources et répondre
 
 ## Option choisie : Claude par API, avec les citations de l'API
 
-- Modèle `claude-opus-5-5`, réglable avec `--model`.
+- Modèle par défaut `claude-haiku-5-5` (Haiku 5.5), le moins cher
+  (environ 0,001 $ par question, estimation). Choix de FRANKS : commencer
+  par Haiku et monter vers Sonnet 5.5 (~0,025 $) ou Opus 5.5 (~0,05 $)
+  avec `--model` si les réponses ne sont pas concluantes.
 - Les passages sont envoyés comme blocs `search_result` avec citations
   activées : c'est l'API qui relie chaque phrase au passage exact qui
   l'appuie (texte cité mot pour mot), on ne dépend pas du modèle pour
   recopier des numéros.
-- Repli automatique côté serveur (`fallbacks: "default"`) si le modèle
-  décline la demande à tort.
+- Avec Sonnet ou Opus, repli automatique côté serveur
+  (`fallbacks: "default"`) si le modèle décline la demande à tort (Haiku
+  n'offre pas ce repli).
 
 Trois barrières contre l'hallucination :
 

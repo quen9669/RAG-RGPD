@@ -51,6 +51,7 @@ brut (empreinte SHA-256).
 uv run rag-index                      # encode les morceaux (BGE-M3) -> data/index/
 uv run rag-ask --search-only "article 17"   # passages retrouvés, sans LLM ni clé
 uv run rag-ask "Puis-je demander l'effacement de mes données ?"
+uv run rag-ask --model claude-sonnet-5-5 "..."   # modèle plus fort si besoin
 ```
 
 Le premier `rag-index` télécharge le modèle BGE-M3 (environ 2 Go). Pour
