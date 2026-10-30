@@ -52,3 +52,15 @@ def test_contenu_modifie_nouvelle_version_datee(tmp_path: Path) -> None:
     assert (tmp_path / "raw/test/2026-10-29/doc.html").read_bytes() == b"v1"
     assert [e.sha256 for e in store.entries()] == [sha256_hex(b"v1"), sha256_hex(b"v2")]
     assert store.latest("doc") == entry
+
+
+def test_deux_versions_le_meme_jour_ne_s_ecrasent_pas(tmp_path: Path) -> None:
+    """Cas réel : un premier téléchargement vide, puis le bon, le même jour."""
+    store = RawStore(tmp_path)
+    first = _save(store, b"v1", JOUR_1)
+    second = _save(store, b"v2", JOUR_1)
+
+    assert first is not None and second is not None
+    assert second.path == f"raw/test/2026-10-29/doc-{sha256_hex(b'v2')[:8]}.html"
+    assert (tmp_path / first.path).read_bytes() == b"v1"
+    assert (tmp_path / second.path).read_bytes() == b"v2"

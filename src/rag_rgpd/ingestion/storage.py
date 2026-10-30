@@ -122,6 +122,11 @@ class RawStore:
             return None
 
         relative = Path("raw") / source / retrieved_at.date().isoformat() / filename
+        if (self.root / relative).exists():
+            # Deuxième version différente le même jour : on ne doit pas écraser
+            # la première, sinon une ligne du manifeste pointerait vers un
+            # fichier qui n'a plus la bonne empreinte. On suffixe le nom.
+            relative = relative.with_stem(f"{relative.stem}-{digest[:8]}")
         target = self.root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
