@@ -9,7 +9,11 @@ import pytest
 
 from rag_rgpd.answering import cli
 from rag_rgpd.answering.generator import (
+    MODEL_INSUFFICIENT,
+    NO_CITATION,
+    NO_RELEVANT_PASSAGE,
     REFUSAL_TEXT,
+    SAFETY_REFUSAL,
     ClaudeGenerator,
     answer_question,
     parse_response,
@@ -80,6 +84,10 @@ def test_reponse_citee_avec_marqueurs() -> None:
         "Vous pouvez demander l'effacement de vos données[2], sans délai excessif[1][2]."
     )
     assert answer.cited_numbers == [1, 2]
+    assert answer.citations[0].chunk_id == CHUNKS[1].chunk_id
+    assert answer.raw_text == (
+        "Vous pouvez demander l'effacement de vos données, sans délai excessif."
+    )
     assert answer.model == "claude-test"
 
 
@@ -88,20 +96,20 @@ def test_reponse_sans_citation_refusee() -> None:
 
     assert answer.refused
     assert answer.text == REFUSAL_TEXT
-    assert "sans citer" in answer.reason
+    assert answer.refusal_code == NO_CITATION
+    assert answer.raw_text == "Selon moi, oui."
 
 
 def test_je_ne_sais_pas_du_modele() -> None:
     answer = parse_response("q", HITS, response(text_block("Je ne sais pas.")))
 
-    assert answer.refused
-    assert "ne permettent pas" in answer.reason
+    assert answer.refusal_code == MODEL_INSUFFICIENT
 
 
 def test_refus_de_securite() -> None:
     answer = parse_response("q", HITS, response(stop_reason="refusal"))
 
-    assert answer.refused
+    assert answer.refusal_code == SAFETY_REFUSAL
 
 
 def test_barriere_de_similarite_evite_l_appel() -> None:
@@ -110,15 +118,18 @@ def test_barriere_de_similarite_evite_l_appel() -> None:
     answer = answer_question("Quelle est la capitale du Pérou ?", far, ExplodingGenerator(),
                              min_similarity=0.45)
 
-    assert answer.refused
+    assert answer.refusal_code == NO_RELEVANT_PASSAGE
     assert "0.20 < seuil 0.45" in answer.reason
+    assert answer.request == {}
+    assert answer.params["min_similarity"] == 0.45
 
 
 def test_requete_claude() -> None:
     client = FakeClient(response(text_block("Oui", (0, "a consenti"))))
     generator = ClaudeGenerator(client, model="claude-opus-5-5")
 
-    answer = answer_question("Le consentement suffit-il ?", HITS[:2], generator)
+    answer = answer_question("Le consentement suffit-il ?", HITS[:2], generator,
+                             params={"k": 2})
 
     request = client.requests[0]
     assert request["model"] == "claude-opus-5-5"
@@ -127,6 +138,9 @@ def test_requete_claude() -> None:
     assert [b["type"] for b in content] == ["search_result", "search_result", "text"]
     assert content[-1]["text"] == "Question : Le consentement suffit-il ?"
     assert answer.text == "Oui[1]"
+    assert answer.request["messages"] == request["messages"]
+    assert answer.params == {"k": 2, "min_similarity": 0.45,
+                             "llm_model": "claude-opus-5-5", "effort": "medium"}
 
 
 def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reply: SimpleNamespace) -> Path:
@@ -155,6 +169,8 @@ def test_rag_ask_affiche_les_sources_et_journalise(
     assert "ne remplace pas un avis juridique" in out
     record = json.loads(log.read_text(encoding="utf-8"))
     assert record["cited"] == [CHUNKS[2].chunk_id]
+    assert record["retrieved"][0]["rank"] == 1
+    assert record["params"]["k"] == 2
     assert record["embedding_model"] == "BAAI/bge-m3"
     assert not record["refused"]
 

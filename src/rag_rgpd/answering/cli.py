@@ -130,8 +130,11 @@ def ask_main(argv: list[str] | None = None) -> None:
     if not os.environ.get("ANTHROPIC_API_KEY"):
         sys.exit("Clé manquante : définir ANTHROPIC_API_KEY (voir README), "
                  "ou utiliser --search-only.")
-    answer = answer_question(args.question, hits, make_generator(args.model),
-                             min_similarity=args.min_similarity)
+    answer = answer_question(
+        args.question, hits, make_generator(args.model),
+        min_similarity=args.min_similarity,
+        params={"k": args.k, "embedding_model": args.embedding_model},
+    )
     log_answer(answer, searcher.meta, args.log)
     print(format_answer(answer))
 

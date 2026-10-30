@@ -31,16 +31,20 @@ def log_answer(answer: Answer, meta: IndexMeta, path: Path) -> None:
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "question": answer.question,
         "refused": answer.refused,
+        "refusal_code": answer.refusal_code,
         "reason": answer.reason,
         "answer": answer.text,
         "llm_model": answer.model,
         "embedding_model": meta.embedding_model,
         "chunks_sha256": meta.chunks_sha256,
+        "params": answer.params,
         "retrieved": [
-            {"chunk_id": h.chunk.chunk_id, "similarity": round(h.similarity, 4)}
-            for h in answer.hits
+            {"rank": rank, "chunk_id": h.chunk.chunk_id,
+             "similarity": round(h.similarity, 4), "score": round(h.score, 6)}
+            for rank, h in enumerate(answer.hits, start=1)
         ],
         "cited": [answer.hits[n - 1].chunk.chunk_id for n in answer.cited_numbers],
+        "raw_text": answer.raw_text,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8", newline="\n") as f:

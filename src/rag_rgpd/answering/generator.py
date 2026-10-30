@@ -19,7 +19,7 @@ le modèle pour recopier correctement des numéros de source.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 from rag_rgpd.retrieval.index import DEFAULT_MIN_SIMILARITY, Hit
@@ -27,6 +27,13 @@ from rag_rgpd.retrieval.index import DEFAULT_MIN_SIMILARITY, Hit
 DEFAULT_MODEL = "claude-opus-5-5"
 
 REFUSAL_TEXT = "Je ne sais pas."
+
+# Codes de refus, stables pour les tests et le journal (les raisons en
+# français, elles, peuvent être reformulées).
+NO_RELEVANT_PASSAGE = "aucun_passage_pertinent"
+MODEL_INSUFFICIENT = "passages_insuffisants"
+NO_CITATION = "citation_absente"
+SAFETY_REFUSAL = "refus_du_modele"
 
 SYSTEM_PROMPT = """\
 Tu es un assistant qui répond à des questions sur la protection des données \
@@ -52,10 +59,12 @@ class Citation:
     Attributes:
         source_number: numéro du passage dans la liste des sources (à
             partir de 1, comme les marqueurs ``[1]`` de la réponse).
+        chunk_id: identifiant du morceau cité.
         cited_text: phrase du passage reprise mot pour mot.
     """
 
     source_number: int
+    chunk_id: str
     cited_text: str
 
 
@@ -63,24 +72,37 @@ class Citation:
 class Answer:
     """Réponse à une question, avec ses sources.
 
+    Tout ce qu'il faut pour expliquer la réponse après coup : passages
+    retrouvés (rang = position dans ``hits``, avec leurs scores), paramètres,
+    requête exacte envoyée au LLM et texte brut reçu.
+
     Attributes:
         question: question posée.
         text: réponse, avec des marqueurs ``[n]`` renvoyant aux sources.
         refused: ``True`` si l'assistant répond « je ne sais pas ».
-        reason: pourquoi il a refusé (vide sinon).
+        refusal_code: code du refus (``NO_RELEVANT_PASSAGE``...), vide sinon.
+        reason: explication du refus en français (vide sinon).
         hits: passages retrouvés et montrés au modèle, dans l'ordre des
             numéros de source.
         citations: citations relevées dans la réponse.
         model: modèle qui a réellement répondu (vide si non appelé).
+        raw_text: texte reçu du modèle, avant ajout des marqueurs.
+        request: requête envoyée au LLM (consigne et messages), ``{}`` s'il
+            n'a pas été appelé.
+        params: paramètres utilisés (nombre de passages, seuil, modèle...).
     """
 
     question: str
     text: str
     refused: bool
+    refusal_code: str = ""
     reason: str = ""
     hits: list[Hit] = field(default_factory=list)
     citations: list[Citation] = field(default_factory=list)
     model: str = ""
+    raw_text: str = ""
+    request: dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
 
     @property
     def cited_numbers(self) -> list[int]:
@@ -101,11 +123,13 @@ class AnswerGenerator(Protocol):
         ...
 
 
-def refuse(question: str, reason: str, hits: list[Hit] | None = None, model: str = "") -> Answer:
-    """Construit une réponse « je ne sais pas » avec sa raison."""
+def refuse(
+    question: str, code: str, reason: str, hits: list[Hit] | None = None, **extra: Any
+) -> Answer:
+    """Construit une réponse « je ne sais pas » avec son code et sa raison."""
     return Answer(
-        question=question, text=REFUSAL_TEXT, refused=True, reason=reason,
-        hits=hits or [], model=model,
+        question=question, text=REFUSAL_TEXT, refused=True, refusal_code=code,
+        reason=reason, hits=hits or [], **extra,
     )
 
 
@@ -128,7 +152,9 @@ def search_result_blocks(hits: list[Hit]) -> list[dict[str, Any]]:
     ]
 
 
-def parse_response(question: str, hits: list[Hit], response: Any) -> Answer:
+def parse_response(
+    question: str, hits: list[Hit], response: Any, request: dict[str, Any] | None = None
+) -> Answer:
     """Transforme la réponse de l'API en ``Answer``.
 
     La réponse arrive découpée en blocs de texte ; ceux qui s'appuient sur
@@ -139,14 +165,17 @@ def parse_response(question: str, hits: list[Hit], response: Any) -> Answer:
         question: question posée.
         hits: passages envoyés, dans le même ordre que dans la requête.
         response: message renvoyé par ``client.beta.messages.create``.
+        request: requête envoyée, conservée pour l'explicabilité.
 
     Returns:
         La réponse, ou un refus si le modèle a refusé ou n'a rien cité.
     """
     model = getattr(response, "model", "")
+    trace = {"model": model, "request": request or {}}
     if response.stop_reason == "refusal":
-        return refuse(question, "le modèle a décliné la demande", hits, model)
+        return refuse(question, SAFETY_REFUSAL, "le modèle a décliné la demande", hits, **trace)
 
+    raw_parts: list[str] = []
     parts: list[str] = []
     citations: list[Citation] = []
     for block in response.content:
@@ -154,26 +183,34 @@ def parse_response(question: str, hits: list[Hit], response: Any) -> Answer:
         # de relais à un autre modèle) : seul le texte compose la réponse.
         if block.type != "text":
             continue
+        raw_parts.append(block.text)
         parts.append(block.text)
         numbers = []
         for cite in block.citations or []:
             if getattr(cite, "type", "") != "search_result_location":
                 continue
             number = cite.search_result_index + 1
-            citations.append(Citation(source_number=number, cited_text=cite.cited_text))
+            citations.append(Citation(
+                source_number=number,
+                chunk_id=hits[cite.search_result_index].chunk.chunk_id,
+                cited_text=cite.cited_text,
+            ))
             numbers.append(number)
         if numbers:
             parts.append("".join(f"[{n}]" for n in sorted(set(numbers))))
 
     text = "".join(parts).strip()
+    trace["raw_text"] = "".join(raw_parts)
     if text.startswith("Je ne sais pas"):
-        return refuse(question, "les passages trouvés ne permettent pas de répondre", hits, model)
+        return refuse(question, MODEL_INSUFFICIENT,
+                      "les passages trouvés ne permettent pas de répondre", hits, **trace)
     if not citations:
         # Barrière 3 : une réponse qui ne cite rien n'est pas vérifiable.
-        return refuse(question, "le modèle a répondu sans citer de source", hits, model)
+        return refuse(question, NO_CITATION,
+                      "le modèle a répondu sans citer de source", hits, **trace)
     return Answer(
         question=question, text=text, refused=False, hits=hits,
-        citations=citations, model=model,
+        citations=citations, **trace,
     )
 
 
@@ -208,16 +245,12 @@ class ClaudeGenerator:
 
     def generate(self, question: str, hits: list[Hit]) -> Answer:
         """Rédige une réponse citée (voir ``AnswerGenerator.generate``)."""
-        response = self._client.beta.messages.create(
-            model=self.model,
-            max_tokens=16000,
-            system=SYSTEM_PROMPT,
-            output_config={"effort": self.effort},
-            # Si le modèle décline la demande (filtre de sécurité trop
-            # prudent), l'API la relance elle-même sur un modèle de secours.
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            messages=[
+        request = {
+            "model": self.model,
+            "max_tokens": 16000,
+            "system": SYSTEM_PROMPT,
+            "output_config": {"effort": self.effort},
+            "messages": [
                 {
                     "role": "user",
                     "content": [
@@ -226,8 +259,15 @@ class ClaudeGenerator:
                     ],
                 }
             ],
+        }
+        response = self._client.beta.messages.create(
+            **request,
+            # Si le modèle décline la demande (filtre de sécurité trop
+            # prudent), l'API la relance elle-même sur un modèle de secours.
+            betas=["server-side-fallback-2026-07-01"],
+            fallbacks="default",
         )
-        return parse_response(question, hits, response)
+        return parse_response(question, hits, response, request)
 
 
 def answer_question(
@@ -236,6 +276,7 @@ def answer_question(
     generator: AnswerGenerator,
     *,
     min_similarity: float = DEFAULT_MIN_SIMILARITY,
+    params: dict[str, Any] | None = None,
 ) -> Answer:
     """Répond à une question, ou refuse sans appeler le LLM si rien n'est proche.
 
@@ -244,16 +285,26 @@ def answer_question(
         hits: passages retrouvés par la recherche.
         generator: LLM chargé de rédiger.
         min_similarity: seuil de la barrière 1.
+        params: autres paramètres à tracer (nombre de passages demandés,
+            modèle d'embedding...).
 
     Returns:
-        La réponse citée ou un refus motivé.
+        La réponse citée ou un refus motivé, avec les paramètres utilisés.
     """
+    used = {
+        **(params or {}),
+        "min_similarity": min_similarity,
+        "llm_model": getattr(generator, "model", ""),
+        "effort": getattr(generator, "effort", ""),
+    }
     best = max((h.similarity for h in hits), default=0.0)
     if best < min_similarity:
         return refuse(
             question,
+            NO_RELEVANT_PASSAGE,
             f"aucun passage assez proche de la question "
             f"(meilleure similarité {best:.2f} < seuil {min_similarity:.2f})",
             hits,
+            params=used,
         )
-    return generator.generate(question, hits)
+    return replace(generator.generate(question, hits), params=used)
