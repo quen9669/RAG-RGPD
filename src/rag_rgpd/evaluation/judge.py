@@ -37,9 +37,11 @@ passages numérotés qu'il a reçus ; les marqueurs [n] de sa réponse renvoient
 
 Corrige uniquement à partir des passages fournis, pas de tes connaissances.
 
-1. Découpe la réponse en affirmations (une idée vérifiable chacune ; ignore \
-les phrases de politesse et l'avertissement « ne remplace pas un avis \
-juridique »). Pour chacune :
+1. Découpe la réponse en affirmations (une idée vérifiable chacune). Ne \
+compte pas : les phrases d'introduction ou de conclusion sans contenu, les \
+remarques sur ce que les passages ne couvrent pas (« les passages ne \
+précisent pas... »), le développement d'un sigle, et l'avertissement « ne \
+remplace pas un avis juridique ». Pour chacune :
    - « appuyee » : vrai si un des passages fournis dit bien cela (pas \
 seulement un sujet voisin) ;
    - « citee » : vrai si l'affirmation porte un marqueur [n] (dans sa phrase \
@@ -110,14 +112,32 @@ class Judgement:
     from_cache: bool = False
 
     @property
-    def faithful(self) -> bool:
-        """Aucune affirmation sans appui dans les passages (pas d'hallucination)."""
-        return all(c["appuyee"] for c in self.claims)
+    def unsupported(self) -> list[str]:
+        """Affirmations sans appui dans les passages."""
+        return [c["texte"] for c in self.claims if not c["appuyee"]]
 
     @property
-    def all_cited(self) -> bool:
-        """Chaque affirmation porte une citation."""
-        return all(c["citee"] for c in self.claims)
+    def faithful(self) -> bool:
+        """Aucune affirmation sans appui dans les passages."""
+        return not self.unsupported
+
+    @property
+    def support_rate(self) -> float | None:
+        """Part des affirmations appuyées par les passages (``None`` si aucune).
+
+        Une part plutôt qu'un tout-ou-rien : une affirmation douteuse sur
+        dix ne rend pas la réponse entière « infidèle ».
+        """
+        if not self.claims:
+            return None
+        return sum(1 for c in self.claims if c["appuyee"]) / len(self.claims)
+
+    @property
+    def citation_rate(self) -> float | None:
+        """Part des affirmations qui portent une citation (``None`` si aucune)."""
+        if not self.claims:
+            return None
+        return sum(1 for c in self.claims if c["citee"]) / len(self.claims)
 
     @property
     def completeness(self) -> float | None:
@@ -224,14 +244,15 @@ _QUOTED = re.compile(r"«[^»]*»|\"[^\"]*\"|“[^”]*”")
 _WORD = re.compile(r"\w+")
 
 
-def verbatim_copies(answer: str, passages: list[str], *, min_words: int = 12) -> list[str]:
+def verbatim_copies(answer: str, passages: list[str], *, min_words: int = 20) -> list[str]:
     """Phrases recopiées mot pour mot d'un passage sans guillemets.
 
     Contrôle fait par le code, sans LLM : on cherche dans la réponse (hors
     passages entre guillemets) toute suite d'au moins ``min_words`` mots
-    identique à une suite d'un passage. Douze mots, c'est plus qu'une
-    expression consacrée (« données à caractère personnel ») et moins
-    qu'une phrase d'article.
+    identique à une suite d'un passage. Vingt mots, c'est plus que les
+    formules qui reviennent dans tout le RGPD (« le responsable du traitement
+    et le sous-traitant mettent en œuvre les mesures techniques... ») : une
+    phrase d'article reprise presque entière.
 
     Args:
         answer: réponse de l'assistant.

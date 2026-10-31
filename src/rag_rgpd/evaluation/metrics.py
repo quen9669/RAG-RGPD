@@ -19,9 +19,10 @@ Indicateurs de la réponse (avec le LLM et le correcteur) :
 
 - **citations vérifiées** : toutes les citations se retrouvent dans leur passage ;
 - **source attendue citée** : la réponse cite au moins une bonne source ;
-- **fidélité** : aucune affirmation sans appui dans les passages (l'inverse
-  du taux d'hallucination) ;
-- **affirmations citées** : chaque affirmation porte un numéro de source ;
+- **fidélité** : part des affirmations appuyées par les passages (l'inverse
+  du taux d'hallucination), moyenne sur les questions ;
+- **affirmations citées** : part des affirmations qui portent un numéro de
+  source ;
 - **complétude** : part moyenne des points clés couverts ;
 - **pièges évités** : l'erreur connue n'est pas commise ;
 - **sans recopie** : aucune phrase recopiée sans guillemets.
@@ -43,7 +44,7 @@ METRICS: list[tuple[str, str]] = [
     ("refus_ok", "refus corrects"),
     ("citations_ok", "citations vérifiées"),
     ("source_citee", "source attendue citée"),
-    ("fidele", "fidélité (sans hallucination)"),
+    ("fidele", "fidélité (affirmations appuyées)"),
     ("toutes_citees", "affirmations citées"),
     ("completude", "complétude (points clés)"),
     ("piege_ok", "pièges évités"),
@@ -92,6 +93,7 @@ def score_case(
         "piege_ok": None,
         "sans_recopie": None,
         "recopies": [],
+        "non_appuyees": [],
         "commentaire": "",
         "cout_usd": trace.cost_usd or 0.0,
         "trace_id": trace.trace_id,
@@ -106,8 +108,9 @@ def score_case(
         row["recopies"] = copies
         row["sans_recopie"] = not copies
     if answered and judgement is not None:
-        row["fidele"] = judgement.faithful
-        row["toutes_citees"] = judgement.all_cited
+        row["fidele"] = judgement.support_rate
+        row["toutes_citees"] = judgement.citation_rate
+        row["non_appuyees"] = judgement.unsupported
         row["completude"] = judgement.completeness
         row["piege_ok"] = judgement.trap_avoided if case.trap else None
         row["commentaire"] = judgement.comment

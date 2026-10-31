@@ -40,7 +40,7 @@ def _judgement(**values) -> Judgement:
 
 
 def test_recopie_sans_guillemets_reperee() -> None:
-    answer = f"Selon le RGPD, {PASSAGE[:120]} [1]."
+    answer = f"Selon le RGPD, {PASSAGE} [1]."
 
     copies = verbatim_copies(answer, [PASSAGE])
 
@@ -52,6 +52,20 @@ def test_recopie_entre_guillemets_acceptee() -> None:
     answer = f"Le RGPD dit : « {PASSAGE} » [1]."
 
     assert verbatim_copies(answer, [PASSAGE]) == []
+
+
+def test_formule_courte_acceptee() -> None:
+    answer = "Le responsable du traitement doit effacer les données dans les meilleurs délais [1]."
+
+    assert verbatim_copies(answer, [PASSAGE]) == []
+
+
+def test_part_des_affirmations() -> None:
+    judgement = _judgement(claims=[{"texte": "a", "appuyee": True, "citee": False},
+                                   {"texte": "b", "appuyee": False, "citee": False}])
+
+    assert judgement.support_rate == 0.5 and judgement.citation_rate == 0.0
+    assert _judgement(claims=[]).support_rate is None
 
 
 def test_reformulation_acceptee() -> None:
@@ -83,7 +97,9 @@ def test_correcteur_lit_le_json(searcher: Searcher) -> None:
     judgement = ClaudeJudge(client).judge(case, trace)
 
     assert not judgement.faithful
-    assert judgement.all_cited
+    assert judgement.support_rate == 0.0
+    assert judgement.citation_rate == 1.0
+    assert judgement.unsupported == ["x"]
     assert judgement.completeness == 1.0
     assert not judgement.trap_avoided
     request = client.requests[0]
@@ -114,7 +130,8 @@ def test_indicateurs_d_une_reponse(searcher: Searcher) -> None:
 
     assert row["rang"] == 1 and row["mrr"] == 1.0 and row["source_top3"]
     assert row["refus_ok"] and row["citations_ok"] and row["source_citee"]
-    assert row["fidele"] and row["completude"] == 0.5
+    assert row["fidele"] == 1.0 and row["toutes_citees"] == 1.0
+    assert row["completude"] == 0.5 and row["non_appuyees"] == []
     assert row["piege_ok"] is False
 
 
@@ -146,7 +163,7 @@ def test_barriere_de_qualite() -> None:
     worse = {"source_k": 0.9, "fidele": 0.85, "completude": 0.7}
 
     assert compare(better, reference) == []
-    assert compare(worse, reference) == ["fidélité (sans hallucination) : 0.90 -> 0.85"]
+    assert compare(worse, reference) == ["fidélité (affirmations appuyées) : 0.90 -> 0.85"]
     assert compare(worse, reference, tolerance=0.05) == []
     assert "↑" in format_summary(better, reference)
 

@@ -163,9 +163,9 @@ une dizaine d'indicateurs entre 0 et 1 (plus haut = mieux) :
 | source dans les k, top 3, MRR | la bonne source est retrouvée, et à quel rang | code |
 | refus corrects | « je ne sais pas » exactement quand il le faut | code |
 | citations vérifiées, source attendue citée | les citations tiennent et visent la bonne source | code |
-| sans recopie | aucune phrase de 12 mots ou plus reprise sans guillemets | code |
-| fidélité | aucune affirmation sans appui (hallucination) | correcteur LLM |
-| affirmations citées | chaque affirmation porte un numéro de source | correcteur LLM |
+| sans recopie | aucune phrase de 20 mots ou plus reprise sans guillemets | code |
+| fidélité | part des affirmations appuyées par les passages (hallucination = le reste) | correcteur LLM |
+| affirmations citées | part des affirmations qui portent un numéro de source | correcteur LLM |
 | complétude | part des `points_cles` couverts | correcteur LLM |
 | pièges évités | l'erreur décrite dans `piege` n'est pas commise | correcteur LLM |
 

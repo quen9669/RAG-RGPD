@@ -170,11 +170,12 @@ def eval_main(argv: list[str] | None = None) -> None:
     print(f"\nrapport complet : {out.as_posix()}")
 
     to_read = [r for r in rows if r["source_k"] is False or not r["refus_ok"]
-               or r["fidele"] is False or r["piege_ok"] is False or r["recopies"]]
+               or r["non_appuyees"] or r["piege_ok"] is False or r["recopies"]]
     if to_read:
         print("\nÀ relire (fiche : uv run rag-trace <id>) :")
         for r in to_read:
-            note = r["commentaire"] or ("recopie sans guillemets" if r["recopies"] else "")
+            note = (r["commentaire"] or (r["non_appuyees"] or [""])[0]
+                    or ("recopie sans guillemets" if r["recopies"] else ""))
             print(f"  {r['trace_id']}  {r['cas']:<30} {note[:80]}")
 
     if args.save_reference:
