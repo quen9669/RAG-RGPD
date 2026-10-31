@@ -26,6 +26,7 @@ rag-index = "rag_rgpd.answering.cli:index_main"
 rag-ask = "rag_rgpd.answering.cli:ask_main"
 rag-trace = "rag_rgpd.explain.cli:trace_main"
 rag-batch = "rag_rgpd.explain.cli:batch_main"
+rag-eval = "rag_rgpd.evaluation.cli:eval_main"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.14.0"]

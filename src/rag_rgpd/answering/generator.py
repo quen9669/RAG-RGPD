@@ -58,7 +58,14 @@ Règles :
 première utilisation.
 - Appuie-toi uniquement sur les résultats de recherche fournis dans le \
 message. N'utilise pas tes connaissances générales, même si tu es sûr de toi.
-- Chaque affirmation doit pouvoir être reliée à un passage précis.
+- Chaque affirmation doit pouvoir être reliée à un passage précis, y compris \
+les exemples : ne donne un exemple que s'il figure dans un passage, et cite ce \
+passage.
+- Reformule avec tes mots. Si tu reprends une phrase d'un passage mot pour \
+mot, mets-la entre guillemets « ».
+- Chaque droit et chaque obligation a ses propres règles : n'applique pas à \
+l'un (par exemple le droit à l'effacement) ce qu'un passage dit d'un autre \
+(par exemple le droit d'accès), sauf si un passage le dit explicitement.
 - Si les passages ne permettent pas de répondre, réponds exactement \
 « Je ne sais pas. » et rien d'autre. Une réponse partielle est acceptable \
 seulement si tu dis clairement ce que les passages ne couvrent pas.

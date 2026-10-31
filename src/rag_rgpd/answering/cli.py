@@ -35,13 +35,17 @@ from rag_rgpd.retrieval.embeddings import Embedder, SentenceTransformerEmbedder
 from rag_rgpd.retrieval.index import (
     DEFAULT_K,
     DEFAULT_MIN_SIMILARITY,
+    DEFAULT_POOL,
     Hit,
     Searcher,
     build_index,
 )
+from rag_rgpd.retrieval.rerank import DEFAULT_MODEL as DEFAULT_RERANK_MODEL
+from rag_rgpd.retrieval.rerank import CrossEncoderReranker, Reranker
 
 # Fabriques remplaçables dans les tests, pour ne charger ni PyTorch ni l'API.
 make_embedder: Callable[[str], Embedder] = SentenceTransformerEmbedder
+make_reranker: Callable[[str], Reranker] = CrossEncoderReranker
 make_generator: Callable[[str, ResponseCache | None], AnswerGenerator] = (
     lambda model, cache=None: ClaudeGenerator(model=model, cache=cache)
 )
@@ -94,6 +98,31 @@ def _api_error_message(error: anthropic.APIError) -> str:
         if detail:
             return detail
     return error.message
+
+
+def add_search_options(parser: argparse.ArgumentParser) -> None:
+    """Options de recherche communes à ``rag-ask``, ``rag-batch`` et ``rag-eval``."""
+    parser.add_argument("--index-dir", type=Path, default=Path("data/index"))
+    parser.add_argument("--embedding-model", default=DEFAULT_EMBEDDING_MODEL)
+    parser.add_argument("--rerank-model", default=DEFAULT_RERANK_MODEL,
+                        help="modèle qui reclasse les passages")
+    parser.add_argument("--pool", type=int, default=DEFAULT_POOL,
+                        help="passages relus par le modèle de reclassement")
+    parser.add_argument("--no-rerank", action="store_true",
+                        help="sans reclassement (ordre de la recherche hybride, comme à l'étape 4)")
+    parser.add_argument("--no-pin", action="store_true",
+                        help="ne pas placer en tête les articles cités par leur numéro")
+
+
+def open_searcher(args: argparse.Namespace) -> Searcher:
+    """Ouvre l'index avec les réglages de recherche demandés."""
+    return Searcher(
+        args.index_dir,
+        make_embedder(args.embedding_model),
+        reranker=None if args.no_rerank else make_reranker(args.rerank_model),
+        pool=args.pool,
+        pin_cited_articles=not args.no_pin,
+    )
 
 
 def format_source(number: int, hit: Hit) -> str:
@@ -152,8 +181,7 @@ def ask_main(argv: list[str] | None = None) -> None:
     _utf8_output()
     parser = argparse.ArgumentParser(prog="rag-ask", description="Pose une question.")
     parser.add_argument("question")
-    parser.add_argument("--index-dir", type=Path, default=Path("data/index"))
-    parser.add_argument("--embedding-model", default=DEFAULT_EMBEDDING_MODEL)
+    add_search_options(parser)
     parser.add_argument("--k", type=int, default=DEFAULT_K, help="passages retrouvés")
     parser.add_argument("--min-similarity", type=float, default=DEFAULT_MIN_SIMILARITY)
     parser.add_argument("--model", default=DEFAULT_MODEL, help="modèle Claude")
@@ -175,7 +203,7 @@ def ask_main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     load_env(args.env_file)
 
-    searcher = Searcher(args.index_dir, make_embedder(args.embedding_model))
+    searcher = open_searcher(args)
 
     generator = None
     if not args.search_only:

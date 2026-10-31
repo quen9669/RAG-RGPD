@@ -14,12 +14,14 @@ qui fonctionne seul. Avant chaque étape : explication des concepts, puis 2 ou
 3. Extraction du texte des PDF et pages web, nettoyage, découpage en morceaux (faite).
 4. Recherche dans les textes et réponses avec citations : LLM, RAG (faite).
 
-   **4 bis. Tests et explicabilité dans VS Code** (en cours, voir plus bas).
+   **4 bis. Tests et explicabilité dans VS Code** (faite, voir plus bas).
 
 ## Phase 3 : Mesurer la qualité
 
 5. Jeu d'environ 50 questions avec bonnes réponses, mesure des erreurs :
-   évaluation, hallucinations, barrière de qualité.
+   évaluation, hallucinations, barrière de qualité (en cours : jeu de 52
+   questions, commande `rag-eval`, reclassement des passages, décision
+   [0011](decisions/0011-evaluation-et-reclassement.md)).
 
 ## Phase 4 : Aller plus loin
 

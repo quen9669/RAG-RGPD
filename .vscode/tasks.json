@@ -54,6 +54,18 @@
       "problemMatcher": []
     },
     {
+      "label": "Évaluation : recherche seule (gratuit)",
+      "type": "shell",
+      "command": "uv run rag-eval --search-only",
+      "problemMatcher": []
+    },
+    {
+      "label": "Évaluation complète + barrière de qualité (payant, ~1 $)",
+      "type": "shell",
+      "command": "uv run rag-eval",
+      "problemMatcher": []
+    },
+    {
       "label": "Reconstruire l'index",
       "type": "shell",
       "command": "uv run rag-index",

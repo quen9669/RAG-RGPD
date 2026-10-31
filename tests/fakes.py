@@ -35,6 +35,32 @@ class FakeEmbedder:
         return vectors
 
 
+class FakeReranker:
+    """Faux modèle de reclassement : part des mots de la question présents.
+
+    Assez pour vérifier que l'ordre suit bien ses notes, sans PyTorch.
+    """
+
+    model_name = "faux-reclasseur"
+
+    def __init__(self, favourite: str = "") -> None:
+        # Mot qui donne la note maximale : permet de forcer un ordre précis.
+        self.favourite = favourite
+        self.calls: list[tuple[str, int]] = []
+
+    def score(self, question: str, texts: list[str]) -> list[float]:
+        self.calls.append((question, len(texts)))
+        words = set(re.findall(r"\w{3,}", question.lower()))
+        notes = []
+        for text in texts:
+            if self.favourite and self.favourite in text:
+                notes.append(1.0)
+                continue
+            found = set(re.findall(r"\w{3,}", text.lower()))
+            notes.append(len(words & found) / max(len(words), 1) / 2)
+        return notes
+
+
 def make_chunk(rank: int, label: str, title: str, text: str, **extra: object) -> Chunk:
     values = {
         "chunk_id": f"rgpd-fr-abcdef12-{rank:04d}",

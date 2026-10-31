@@ -13,28 +13,36 @@
 #   defaut_connu  texte non vide = défaut connu : le test est un « échec attendu »
 #                 (xfail) au lieu de faire échouer toute la suite. Le retirer une
 #                 fois le défaut corrigé.
+#   points_cles   idées qu'une bonne réponse doit contenir (notées par le
+#                 correcteur LLM de rag-eval, étape 5)
+#   piege         erreur précise à ne pas commettre, vérifiée par le correcteur
 #
-# Ces cas sont la première version du jeu d'évaluation de l'étape 5 : ajouter ici
+# C'est aussi le jeu d'évaluation de l'étape 5 (uv run rag-eval) : ajouter ici
 # chaque question qui a surpris lors d'un essai.
 
 - id: donnee-sensible
   question: Qu'est-ce qu'une donnée sensible ?
   sources: [Article 9]
+  points_cles: [origine raciale ou ethnique / opinions politiques / convictions religieuses / appartenance syndicale, données génétiques ou biométriques / santé / vie ou orientation sexuelle, traitement interdit sauf exceptions]
   defaut_connu: >-
     Article 9 absent des 12 premiers passages : les considérants (10, 91, 51) et l'article 4 passent devant (essai du 30/10/2026, k=8).
 
 - id: effacement
   question: Puis-je demander l'effacement de mes données ?
   sources: [Article 17]
+  points_cles: [droit d'obtenir l'effacement dans les meilleurs délais, cas où il s'applique (données plus nécessaires / retrait du consentement / opposition / traitement illicite)]
+  piege: Ne pas appliquer au droit à l'effacement les règles du droit d'accès (article 15).
   rang_max: 3
 
 - id: droit-a-l-oubli
   question: Le droit à l'oubli existe-t-il dans le RGPD ?
   sources: [Article 17]
+  points_cles: [oui / article 17 « droit à l'effacement (droit à l'oubli) », conditions et exceptions]
 
 - id: article-17-mot-cle
   question: article 17
   sources: ["Article 17, paragraphe 1"]
+  points_cles: [droit à l'effacement ou droit à l'oubli]
   rang_max: 3
   defaut_connu: >-
     La recherche par mots-clés classe mal « article 17 » : le paragraphe 1
@@ -43,6 +51,7 @@
 - id: bases-legales
   question: Sur quelles bases légales peut-on traiter des données personnelles ?
   sources: [Article 6]
+  points_cles: [six bases : consentement / contrat / obligation légale / intérêts vitaux / mission d'intérêt public / intérêts légitimes, au moins une base nécessaire]
   rang_max: 3
   defaut_connu: >-
     Article 6 absent des 12 premiers : considérants 45 à 50 et article 5 passent devant, similarités toutes entre 0,57 et 0,69 (essai du 30/10/2026).
@@ -50,30 +59,36 @@
 - id: delegue
   question: Quand faut-il désigner un délégué à la protection des données ?
   sources: [Article 37]
+  points_cles: [autorité ou organisme public, suivi régulier et systématique à grande échelle, traitement à grande échelle de données sensibles ou pénales]
   rang_max: 3
 
 - id: droit-d-acces
   question: Comment savoir quelles données une entreprise détient sur moi ?
   sources: [Article 15]
+  points_cles: [droit d'accès, confirmation que des données sont traitées et copie des données, informations (finalités / destinataires / durée / source)]
   defaut_connu: >-
     Article 15 seulement au rang 11 : la recherche par mots fait remonter les articles 47 et 64 (essai du 30/10/2026 ; passe avec k=12).
 
 - id: sous-traitant
   question: Quelles sont les obligations d'un sous-traitant ?
   sources: [Article 28, cnpd-brochure-responsable-sous-traitant]
+  points_cles: [agit sur instruction documentée du responsable, garanties de sécurité, contrat ou acte juridique, aide le responsable / sous-traitance ultérieure autorisée]
 
 - id: violation-delai
   question: Dans quel délai faut-il notifier une violation de données à l'autorité ?
   sources: [Article 33]
+  points_cles: [72 heures au plus tard après en avoir pris connaissance, justifier un retard, sauf si risque improbable]
   rang_max: 3
 
 - id: consentement-enfant
   question: À partir de quel âge un enfant peut-il consentir seul à un service en ligne ?
   sources: [Article 8]
+  points_cles: [16 ans en principe, les États peuvent abaisser jusqu'à 13 ans, sinon autorisation du titulaire de la responsabilité parentale]
 
 - id: portabilite
   question: Puis-je récupérer mes données pour les transmettre à un autre service ?
   sources: [Article 20]
+  points_cles: [droit à la portabilité, format structuré couramment utilisé et lisible par machine, transmission directe si techniquement possible, traitement fondé sur le consentement ou un contrat et automatisé]
 
 - id: hors-sujet-geographie
   question: Quelle est la capitale du Pérou ?
@@ -81,4 +96,208 @@
 
 - id: hors-sujet-cuisine
   question: Comment réussir une pâte à crêpes ?
+  refus: true
+
+# --- Étape 5 : jeu d'évaluation complété à ~50 questions ---
+# Points clés rédigés à partir du texte du RGPD : à relire.
+
+- id: definition-donnee-personnelle
+  question: Qu'est-ce qu'une donnée à caractère personnel ?
+  sources: [Article 4]
+  rang_max: 3
+  points_cles: [information se rapportant à une personne physique identifiée ou identifiable, identification directe ou indirecte (nom / numéro / localisation / identifiant en ligne)]
+
+- id: definition-traitement
+  question: Que veut dire « traitement » de données au sens du RGPD ?
+  sources: [Article 4]
+  points_cles: [toute opération sur des données (collecte / enregistrement / conservation / consultation / effacement...), automatisée ou non]
+
+- id: definition-responsable
+  question: Qui est le responsable du traitement ?
+  sources: [Article 4, Article 24, cnpd-brochure-responsable-sous-traitant]
+  points_cles: [détermine les finalités et les moyens du traitement, seul ou conjointement]
+
+- id: responsable-ou-sous-traitant
+  question: Comment savoir si mon entreprise est responsable du traitement ou sous-traitant ?
+  sources: [cnpd-brochure-responsable-sous-traitant, Article 4, Article 28]
+  points_cles: [le responsable décide des finalités et des moyens, le sous-traitant agit pour le compte et sur instruction du responsable]
+
+- id: responsables-conjoints
+  question: Que se passe-t-il quand deux organismes décident ensemble d'un traitement ?
+  sources: [Article 26]
+  points_cles: [responsables conjoints, accord qui répartit les obligations, la personne peut exercer ses droits auprès de chacun]
+
+- id: principes
+  question: Quels sont les grands principes du RGPD ?
+  sources: [Article 5]
+  rang_max: 3
+  points_cles: [licéité loyauté transparence, limitation des finalités, minimisation, exactitude, limitation de la conservation, intégrité et confidentialité, responsabilité]
+
+- id: minimisation
+  question: Ai-je le droit de collecter toutes les données qui pourraient m'être utiles un jour ?
+  sources: [Article 5]
+  points_cles: [non, minimisation des données, données adéquates pertinentes et limitées à ce qui est nécessaire à la finalité]
+
+- id: duree-conservation
+  question: Combien de temps peut-on conserver des données personnelles ?
+  sources: [Article 5]
+  points_cles: [pas plus longtemps que nécessaire à la finalité, pas de durée unique fixée par le RGPD]
+
+- id: consentement-conditions
+  question: Quelles conditions doit remplir un consentement valable ?
+  sources: [Article 7, Article 4]
+  points_cles: [libre, spécifique, éclairé, univoque, preuve par le responsable, retrait possible à tout moment aussi simplement que donné]
+
+- id: retrait-consentement
+  question: Puis-je retirer mon consentement après l'avoir donné ?
+  sources: [Article 7]
+  points_cles: [oui à tout moment, aussi simple que de le donner, ne remet pas en cause les traitements passés]
+
+- id: interet-legitime
+  question: Qu'est-ce que l'intérêt légitime comme base légale ?
+  sources: [Article 6]
+  points_cles: [traitement nécessaire aux intérêts légitimes du responsable ou d'un tiers, sauf si les intérêts ou droits de la personne prévalent, pas pour les autorités publiques dans leurs missions]
+
+- id: donnees-sante
+  question: Une entreprise peut-elle traiter des données de santé de ses salariés ?
+  sources: [Article 9]
+  points_cles: [interdiction de principe des catégories particulières, exceptions limitées (consentement explicite / obligations en droit du travail...)]
+
+- id: casier-judiciaire
+  question: Peut-on traiter des données sur les condamnations pénales ?
+  sources: [Article 10]
+  points_cles: [seulement sous le contrôle de l'autorité publique ou si le droit de l'Union ou d'un État membre l'autorise]
+
+- id: information-personnes
+  question: Quelles informations doit-on donner aux personnes quand on collecte leurs données ?
+  sources: [Article 13, Article 14]
+  rang_max: 5
+  points_cles: [identité du responsable, finalités et base légale, destinataires, durée de conservation, droits de la personne, droit de réclamation]
+
+- id: delai-reponse-droits
+  question: Dans quel délai une entreprise doit-elle répondre à une demande d'exercice de mes droits ?
+  sources: [Article 12]
+  points_cles: [un mois, prolongeable de deux mois selon la complexité, en informant la personne]
+
+- id: gratuite-droits
+  question: L'exercice de mes droits est-il payant ?
+  sources: [Article 12]
+  points_cles: [gratuit en principe, frais raisonnables ou refus possibles si demandes manifestement infondées ou excessives]
+
+- id: rectification
+  question: Mes données sont fausses, que puis-je faire ?
+  sources: [Article 16]
+  rang_max: 3
+  points_cles: [droit de rectification, dans les meilleurs délais, compléter les données incomplètes]
+
+- id: effacement-limites
+  question: Une entreprise peut-elle refuser d'effacer mes données ?
+  sources: [Article 17]
+  points_cles: [oui dans certains cas, liberté d'expression, obligation légale, intérêt public santé, archives ou recherche, droits en justice]
+  piege: Ne pas reprendre les règles du droit d'accès (article 15) pour l'effacement.
+
+- id: limitation
+  question: Qu'est-ce que le droit à la limitation du traitement ?
+  sources: [Article 18]
+  points_cles: [gel des données, conservation sans autre utilisation, cas (exactitude contestée / traitement illicite / opposition en cours)]
+
+- id: opposition-prospection
+  question: Puis-je m'opposer à recevoir de la publicité ciblée ?
+  sources: [Article 21]
+  points_cles: [droit d'opposition à la prospection à tout moment, sans justification, y compris au profilage lié]
+
+- id: decision-automatisee
+  question: Une décision peut-elle être prise sur moi uniquement par un algorithme ?
+  sources: [Article 22]
+  points_cles: [droit de ne pas faire l'objet d'une décision entièrement automatisée produisant des effets juridiques, exceptions (contrat / loi / consentement explicite), intervention humaine]
+
+- id: privacy-by-design
+  question: Qu'est-ce que la protection des données dès la conception ?
+  sources: [Article 25]
+  points_cles: [mesures techniques et organisationnelles dès la conception, protection par défaut, pseudonymisation, minimisation]
+
+- id: registre
+  question: Faut-il tenir un registre des traitements ?
+  sources: [Article 30]
+  rang_max: 3
+  points_cles: [oui pour responsable et sous-traitant, contenu (finalités / catégories / destinataires / délais), exemption limitée aux moins de 250 salariés sous conditions]
+
+- id: securite
+  question: Quelles mesures de sécurité le RGPD impose-t-il ?
+  sources: [Article 32]
+  points_cles: [mesures adaptées au risque, pseudonymisation et chiffrement, confidentialité intégrité disponibilité, tests réguliers]
+
+- id: violation-information-personnes
+  question: Faut-il prévenir les personnes concernées en cas de fuite de données ?
+  sources: [Article 34]
+  points_cles: [oui si risque élevé pour leurs droits et libertés, sans retard injustifié, exceptions (chiffrement / mesures ultérieures / efforts disproportionnés)]
+
+- id: aipd
+  question: Quand faut-il réaliser une analyse d'impact relative à la protection des données ?
+  sources: [Article 35]
+  rang_max: 3
+  points_cles: [traitement susceptible d'engendrer un risque élevé, exemples (profilage à grande échelle / données sensibles à grande échelle / surveillance systématique)]
+
+- id: missions-dpd
+  question: Quelles sont les missions du délégué à la protection des données ?
+  sources: [Article 39]
+  rang_max: 3
+  points_cles: [informer et conseiller, contrôler le respect du RGPD, conseiller sur l'analyse d'impact, coopérer avec l'autorité de contrôle et être son point de contact]
+
+- id: transfert-hors-ue
+  question: Peut-on envoyer des données personnelles vers un pays hors de l'Union européenne ?
+  sources: [Article 44, Article 45, Article 46]
+  points_cles: [oui sous conditions, décision d'adéquation, garanties appropriées (clauses types / règles d'entreprise contraignantes), dérogations]
+
+- id: reclamation-autorite
+  question: Où porter plainte si une entreprise ne respecte pas mes droits ?
+  sources: [Article 77]
+  points_cles: [réclamation auprès d'une autorité de contrôle (au Luxembourg la CNPD), notamment dans l'État de résidence ou de travail]
+
+- id: amendes
+  question: Quel est le montant maximal des amendes prévues par le RGPD ?
+  sources: [Article 83]
+  rang_max: 3
+  points_cles: [jusqu'à 20 millions d'euros ou 4 % du chiffre d'affaires annuel mondial, palier à 10 millions ou 2 %]
+
+- id: indemnisation
+  question: Puis-je obtenir des dommages et intérêts après une violation du RGPD ?
+  sources: [Article 82]
+  points_cles: [droit à réparation du dommage matériel ou moral, auprès du responsable ou du sous-traitant]
+
+- id: champ-territorial
+  question: Le RGPD s'applique-t-il à une entreprise américaine qui vend en ligne à des Luxembourgeois ?
+  sources: [Article 3]
+  points_cles: [oui si elle offre des biens ou services à des personnes dans l'Union ou suit leur comportement]
+
+- id: usage-personnel
+  question: Le RGPD s'applique-t-il à mon carnet d'adresses personnel ?
+  sources: [Article 2]
+  points_cles: [non, exemption des activités strictement personnelles ou domestiques]
+
+- id: pseudonymisation
+  question: Quelle est la différence entre pseudonymisation et anonymisation ?
+  sources: [Article 4, Considérant 26]
+  points_cles: [données pseudonymisées restent personnelles car réidentifiables avec une information supplémentaire, données anonymes hors du RGPD]
+
+- id: notions-cnpd
+  question: Selon la formation de la CNPD, quels sont les acteurs d'un traitement de données ?
+  sources: [cnpd-formation-notions-elementaires]
+  points_cles: [personne concernée, responsable du traitement, sous-traitant, destinataires, autorité de contrôle]
+
+- id: contrat-sous-traitance
+  question: Que doit contenir le contrat entre un responsable et son sous-traitant ?
+  sources: [Article 28, cnpd-brochure-responsable-sous-traitant]
+  points_cles: [objet durée nature finalité, instructions documentées, confidentialité, sécurité, sous-traitance ultérieure autorisée, aide au responsable, suppression ou restitution en fin de contrat, audits]
+
+- id: hors-sujet-impots
+  question: Comment déclarer mes impôts au Luxembourg ?
+  refus: true
+
+- id: hors-sujet-droit-travail
+  question: Combien de jours de congés payés ai-je droit au Luxembourg ?
+  refus: true
+
+- id: hors-sujet-proche-ia
+  question: Quelles obligations le règlement européen sur l'IA impose-t-il aux fournisseurs de modèles ?
   refus: true
