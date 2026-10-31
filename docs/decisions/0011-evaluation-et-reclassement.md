@@ -74,3 +74,40 @@ transposition d'un droit à un autre sans passage qui le dit.
   `--search-only` mesure la recherche gratuitement.
 - Le correcteur LLM se trompe parfois : ses notes servent à comparer deux
   versions et à repérer les réponses à relire, pas à certifier une réponse.
+
+## Résultats (mesure du 2026-10-31, 52 questions, Haiku 5.5 rédige, Sonnet 5.5 corrige)
+
+| Indicateur | Avant (étape 4) | Après |
+|---|---|---|
+| source dans les 8 passages | 0,87 | 0,94 |
+| source dans le top 3 | 0,70 | 0,81 |
+| MRR | 0,55 | 0,65 |
+| refus corrects | 0,94 | 1,00 |
+| citations vérifiées | 1,00 | 1,00 |
+| source attendue citée | 0,86 | 0,91 |
+| fidélité (affirmations appuyées) | 0,97 | 0,97 |
+| affirmations citées | 0,82 | 0,73 |
+| complétude des points clés | 0,89 | 0,94 |
+| pièges évités | 1,00 | 1,00 |
+| sans recopie sans guillemets | 0,20 | 0,13 |
+
+Autres essais : `pool` à 60 est moins bon que 30 (source dans les 8 passages
+0,915 contre 0,936) ; avec `k` = 12, 0,936 mais top 3 et MRR restent sous
+`pool` 30. Coût d'une mesure complète : environ 0,9 $.
+
+**Limites restantes**, laissées pour la suite (boucle d'amélioration de
+l'étape 7) :
+
+- les articles 9, 6 et 5 restent hors des 8 passages (le reclassement semble
+  préférer les considérants, qui expliquent en langage courant) ;
+- les consignes sur les guillemets et les sources n'ont pas été suivies par
+  Haiku : 41 réponses sur 52 recopient une phrase sans guillemets, et la part
+  d'affirmations citées baisse avec le reclassement. Une consigne plus
+  stricte est prête (`consigne-stricte.patch`, non mesurée) ; piste suivante :
+  Claude Sonnet 5.5 comme rédacteur ;
+- une affirmation revient sans appui : « la CNPD est l'autorité de contrôle
+  luxembourgeoise ».
+
+FRANKS a choisi de fusionner avec ces deux reculs (affirmations citées,
+recopies) : la référence enregistrée (`evals/reference.json`) est cette
+mesure, la barrière de qualité s'applique à partir d'elle.

@@ -19,9 +19,10 @@ qui fonctionne seul. Avant chaque étape : explication des concepts, puis 2 ou
 ## Phase 3 : Mesurer la qualité
 
 5. Jeu d'environ 50 questions avec bonnes réponses, mesure des erreurs :
-   évaluation, hallucinations, barrière de qualité (en cours : jeu de 52
-   questions, commande `rag-eval`, reclassement des passages, décision
-   [0011](decisions/0011-evaluation-et-reclassement.md)).
+   évaluation, hallucinations, barrière de qualité (faite : jeu de 52
+   questions, commande `rag-eval`, reclassement des passages, référence
+   enregistrée ; recopies et citations à améliorer à l'étape 7, voir la
+   décision [0011](decisions/0011-evaluation-et-reclassement.md)).
 
 ## Phase 4 : Aller plus loin
 

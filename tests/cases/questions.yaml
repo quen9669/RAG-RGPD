@@ -44,9 +44,6 @@
   sources: ["Article 17, paragraphe 1"]
   points_cles: [droit à l'effacement ou droit à l'oubli]
   rang_max: 3
-  defaut_connu: >-
-    La recherche par mots-clés classe mal « article 17 » : le paragraphe 1
-    arrive en 8e position (essai du 30/10/2026). Piste : filtrer sur l'étiquette.
 
 - id: bases-legales
   question: Sur quelles bases légales peut-on traiter des données personnelles ?
@@ -66,8 +63,6 @@
   question: Comment savoir quelles données une entreprise détient sur moi ?
   sources: [Article 15]
   points_cles: [droit d'accès, confirmation que des données sont traitées et copie des données, informations (finalités / destinataires / durée / source)]
-  defaut_connu: >-
-    Article 15 seulement au rang 11 : la recherche par mots fait remonter les articles 47 et 64 (essai du 30/10/2026 ; passe avec k=12).
 
 - id: sous-traitant
   question: Quelles sont les obligations d'un sous-traitant ?
