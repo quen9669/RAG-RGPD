@@ -25,8 +25,7 @@ from rag_rgpd.explain.batch import make_variants, run_batch, summarize, write_cs
 from rag_rgpd.explain.cases import DEFAULT_CASES_PATH, load_cases
 from rag_rgpd.explain.render import format_trace, format_trace_list
 from rag_rgpd.explain.trace import DEFAULT_TRACE_PATH, find_trace, read_traces
-from rag_rgpd.retrieval.embeddings import DEFAULT_MODEL as DEFAULT_EMBEDDING_MODEL
-from rag_rgpd.retrieval.index import DEFAULT_K, DEFAULT_MIN_SIMILARITY, Searcher
+from rag_rgpd.retrieval.index import DEFAULT_K, DEFAULT_MIN_SIMILARITY
 
 
 def trace_main(argv: list[str] | None = None) -> None:
@@ -76,8 +75,7 @@ def batch_main(argv: list[str] | None = None) -> None:
                         help="recherche seule : gratuit, sans clé d'API")
     parser.add_argument("--no-cache", action="store_true",
                         help="rappelle le LLM même si la réponse est déjà en cache")
-    parser.add_argument("--index-dir", type=Path, default=Path("data/index"))
-    parser.add_argument("--embedding-model", default=DEFAULT_EMBEDDING_MODEL)
+    ask_cli.add_search_options(parser)
     parser.add_argument("--out", type=Path, default=None,
                         help="fichier CSV (par défaut data/batches/<date UTC>.csv)")
     parser.add_argument("--trace", type=Path, default=DEFAULT_TRACE_PATH)
@@ -98,7 +96,7 @@ def batch_main(argv: list[str] | None = None) -> None:
           f"{len(cases) * len(variants)} essais")
 
     cache = None if args.no_cache else ResponseCache()
-    searcher = Searcher(args.index_dir, ask_cli.make_embedder(args.embedding_model))
+    searcher = ask_cli.open_searcher(args)
     try:
         rows = run_batch(
             cases, variants, searcher, lambda model: ask_cli.make_generator(model, cache),

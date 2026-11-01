@@ -41,7 +41,11 @@ def _passage_line(p: Passage, min_similarity: float) -> str:
     below = "↓" if p.similarity < min_similarity else " "
     cited = ",".join(f"[{n}]" for n in p.cited_as) or ""
     where = p.label + (f" p.{p.pages}" if p.pages and not p.label.startswith("Page") else "")
-    return (f"{p.rank:>3}  {p.similarity:5.2f}{below} {p.score:7.4f}  "
+    if p.pinned:
+        rerank = "épinglé"
+    else:
+        rerank = "-" if p.rerank_score is None else f"{p.rerank_score:.3f}"
+    return (f"{p.rank:>3}  {p.similarity:5.2f}{below} {p.score:7.4f} {rerank:>7}  "
             f"{_rank(p.meaning_rank):>4} {_rank(p.words_rank):>5}  "
             f"{_short(p.document_id, 22):<22} {_short(where, 30):<30} {cited}")
 
@@ -96,11 +100,16 @@ def format_trace(trace: Trace, *, show_prompt: bool = False) -> str:
         f"(index de {trace.index.get('chunk_count', '?')} morceaux, "
         f"construit le {trace.index.get('built_at', '?')})"
     )
+    if params.get("reranker"):
+        out.append(f"reclassement : {params['reranker']} sur les {params.get('pool')} premiers")
+    if params.get("pin_cited_articles"):
+        out.append("articles cités par leur numéro dans la question : placés en tête")
     if trace.decision != SEARCH_ONLY:
         out.append(f"LLM : {params.get('llm_model', '?')}, effort {params.get('effort', '?')}")
 
-    out.append(_section("2. Passages retrouvés (ordre de la fusion RRF)"))
-    out.append("  #   sim.    RRF    sens  mots  document               endroit"
+    order = "reclassement" if params.get("reranker") else "fusion RRF"
+    out.append(_section(f"2. Passages retrouvés (ordre du {order})"))
+    out.append("  #   sim.    RRF  reclas.  sens  mots  document               endroit"
                "                        cité")
     for p in trace.sent_passages:
         out.append(_passage_line(p, threshold))
@@ -108,7 +117,9 @@ def format_trace(trace: Trace, *, show_prompt: bool = False) -> str:
         out.append("  ··· écartés juste après la coupure k (non envoyés au modèle) ···")
         for p in trace.held_back:
             out.append(_passage_line(p, threshold))
-    out.append("  sim. = similarité cosinus avec la question (↓ = sous le seuil) ; "
+    out.append("  sim. = similarité cosinus avec la question (↓ = sous le seuil) ; reclas. = "
+               "note du modèle de")
+    out.append("  reclassement (épinglé = article cité dans la question) ; "
                "sens / mots = rang dans")
     out.append("  chaque recherche avant fusion (- = absent des 50 premiers ; pour « mots », "
                "souvent aucun mot commun).")

@@ -86,6 +86,9 @@ class Passage:
             a été écarté juste après la coupure ``k``.
         cited_as: numéros de source sous lesquels la réponse le cite.
         text: texte du morceau.
+        rerank_score: note du modèle de reclassement, qui fixe l'ordre
+            quand il est utilisé (``None`` sinon).
+        pinned: placé en tête parce que la question cite son article.
     """
 
     rank: int
@@ -102,6 +105,8 @@ class Passage:
     sent: bool
     cited_as: list[int] = field(default_factory=list)
     text: str = ""
+    rerank_score: float | None = None
+    pinned: bool = False
 
 
 @dataclass
@@ -215,6 +220,9 @@ def explain_question(
     Returns:
         La trace, et la réponse (``None`` en recherche seule).
     """
+    # Réglages de la recherche (reclassement, articles cités) : tracés avec
+    # les autres paramètres pour savoir quelle version a produit la réponse.
+    params = {**getattr(searcher, "settings", {}), **(params or {})}
     started = time.perf_counter()
     candidates = searcher.search(question, k=k + extra)
     hits = candidates[:k]
@@ -242,6 +250,8 @@ def explain_question(
             url=hit.chunk.url, similarity=round(hit.similarity, 4),
             score=round(hit.score, 6), meaning_rank=meaning, words_rank=words,
             sent=rank <= k, text=hit.chunk.text,
+            rerank_score=None if hit.rerank_score is None else round(hit.rerank_score, 4),
+            pinned=hit.pinned,
         ))
 
     citations = []

@@ -21,7 +21,7 @@ from rag_rgpd.answering.generator import (
 )
 from rag_rgpd.processing.pipeline import write_chunks
 from rag_rgpd.retrieval.index import Hit
-from fakes import CHUNKS, FakeClient, FakeEmbedder, response, text_block
+from fakes import CHUNKS, FakeClient, FakeEmbedder, FakeReranker, response, text_block
 
 HITS = [Hit(chunk=c, similarity=0.8 - i / 10, score=0.03) for i, c in enumerate(CHUNKS)]
 
@@ -129,6 +129,7 @@ def test_haiku_par_defaut_sans_repli() -> None:
 def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reply: SimpleNamespace) -> Path:
     write_chunks(CHUNKS, tmp_path / "chunks.jsonl")
     monkeypatch.setattr(cli, "make_embedder", lambda name: FakeEmbedder(name))
+    monkeypatch.setattr(cli, "make_reranker", lambda name: FakeReranker())
     monkeypatch.setattr(cli, "make_generator", lambda model, cache=None: ClaudeGenerator(FakeClient(reply)))
     cli.index_main(["--chunks", str(tmp_path / "chunks.jsonl"),
                     "--index-dir", str(tmp_path / "index")])

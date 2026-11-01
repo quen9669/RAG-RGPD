@@ -35,7 +35,7 @@ from rag_rgpd.explain.trace import (
 )
 from rag_rgpd.processing.pipeline import write_chunks
 from rag_rgpd.retrieval.index import Hit, Searcher, build_index
-from fakes import CHUNKS, FakeEmbedder, FakeGenerator, response, text_block
+from fakes import CHUNKS, FakeEmbedder, FakeGenerator, FakeReranker, response, text_block
 
 HITS = [Hit(chunk=c, similarity=0.8 - i / 10, score=0.03) for i, c in enumerate(CHUNKS)]
 ROOT = Path(__file__).resolve().parent.parent
@@ -292,6 +292,7 @@ def test_essais_en_lot(searcher: Searcher, tmp_path: Path) -> None:
 def _setup_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     write_chunks(CHUNKS, tmp_path / "chunks.jsonl")
     monkeypatch.setattr(ask_cli, "make_embedder", lambda name: FakeEmbedder(name))
+    monkeypatch.setattr(ask_cli, "make_reranker", lambda name: FakeReranker())
     monkeypatch.setattr(ask_cli, "make_generator", lambda model, cache=None: FakeGenerator())
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
     ask_cli.index_main(["--chunks", str(tmp_path / "chunks.jsonl"),

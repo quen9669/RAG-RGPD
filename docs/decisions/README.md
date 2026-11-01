@@ -15,3 +15,4 @@ Chaque décision importante du projet a sa fiche : option choisie, options
 | [0008](0008-base-de-recherche-hybride.md) | Base de recherche : LanceDB, recherche hybride | 2026-10-30 |
 | [0009](0009-llm-et-citations.md) | LLM : Claude par API, citations et règle de refus | 2026-10-30 |
 | [0010](0010-outils-d-explicabilite.md) | Explicabilité et tests : traces JSONL, Jupyter, cas YAML | 2026-10-30 |
+| [0011](0011-evaluation-et-reclassement.md) | Évaluation maison (rag-eval) et reclassement des passages | 2026-10-30 |

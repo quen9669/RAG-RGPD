@@ -146,6 +146,45 @@ Puis ouvrir un cahier de `notebooks/` et choisir le noyau `.venv` :
 - `02_relire_traces_et_lots.ipynb` : toutes les fiches en tableau, refus par
   barrière, coût total, dernier essai en lot.
 
+## Mesurer la qualité (étape 5)
+
+```bash
+uv run rag-eval --search-only          # recherche seule : gratuit, ~2 min
+uv run rag-eval                        # chaîne complète + correcteur : ~1 $
+uv run rag-eval --no-rerank --no-pin   # comme à l'étape 4, pour comparer
+uv run rag-eval --save-reference       # la version testée devient la référence
+```
+
+`rag-eval` pose les 52 questions de `tests/cases/questions.yaml` et affiche
+une dizaine d'indicateurs entre 0 et 1 (plus haut = mieux) :
+
+| Indicateur | Ce qu'il mesure | Comment |
+|---|---|---|
+| source dans les k, top 3, MRR | la bonne source est retrouvée, et à quel rang | code |
+| refus corrects | « je ne sais pas » exactement quand il le faut | code |
+| citations vérifiées, source attendue citée | les citations tiennent et visent la bonne source | code |
+| sans recopie | aucune phrase de 20 mots ou plus reprise sans guillemets | code |
+| fidélité | part des affirmations appuyées par les passages (hallucination = le reste) | correcteur LLM |
+| affirmations citées | part des affirmations qui portent un numéro de source | correcteur LLM |
+| complétude | part des `points_cles` couverts | correcteur LLM |
+| pièges évités | l'erreur décrite dans `piege` n'est pas commise | correcteur LLM |
+
+Le correcteur est Claude Sonnet 5.5 (`--judge-model`), plus fort que Haiku
+qui rédige ; il répond dans un format JSON imposé. Le rapport complet (avec
+ses commentaires) va dans `data/evals/` ; les réponses à relire s'affichent
+avec leur fiche (`rag-trace <id>`).
+
+**Barrière de qualité** : `evals/reference.json` garde les scores de la
+version de référence (sans aucun texte des documents, il est versionné).
+Sans `--save-reference`, `rag-eval` compare à cette référence et s'arrête en
+erreur si un indicateur recule (`--tolerance 0.02` accepte 2 points de bruit).
+
+**Recherche** (décision [0011](docs/decisions/0011-evaluation-et-reclassement.md)) :
+un article cité par son numéro (« article 17 ») passe en tête, puis un modèle
+de reclassement local (BGE-reranker-v2-m3, environ 2 Go au premier usage)
+relit les 30 premiers passages et fixe l'ordre. `--no-rerank` et `--no-pin`
+désactivent ces deux étapes (aussi sur `rag-ask` et `rag-batch`).
+
 ## Documentation
 
 - [Feuille de route](docs/roadmap.md)
