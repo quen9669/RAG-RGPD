@@ -23,6 +23,7 @@ from typing import Any
 
 import anthropic
 
+from rag_rgpd.agents.pipeline import add_agent_options, with_agents
 from rag_rgpd.answering import cli as ask_cli
 from rag_rgpd.answering.cache import ResponseCache
 from rag_rgpd.answering.generator import DEFAULT_MODEL
@@ -115,6 +116,7 @@ def eval_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--no-cache", action="store_true",
                         help="rappelle les LLM même si la réponse est en cache")
     ask_cli.add_search_options(parser)
+    add_agent_options(parser)
     parser.add_argument("--reference", type=Path, default=DEFAULT_REFERENCE)
     parser.add_argument("--save-reference", action="store_true",
                         help="enregistre ce résultat comme nouvelle référence")
@@ -141,11 +143,14 @@ def eval_main(argv: list[str] | None = None) -> None:
         if not args.no_judge:
             judge = ClaudeJudge(model=args.judge_model, cache=cache)
     searcher = ask_cli.open_searcher(args)
+    searcher, generator = with_agents(args, searcher, generator, cache,
+                                      min_similarity=args.min_similarity)
     settings = {
         "k": args.k, "min_similarity": args.min_similarity,
         "embedding_model": args.embedding_model, **searcher.settings,
         "llm_model": "" if args.search_only else args.model,
         "judge_model": args.judge_model if judge else "",
+        "agents": bool(args.agents),
     }
     print(f"{len(cases)} questions, réglages : {settings}")
     try:

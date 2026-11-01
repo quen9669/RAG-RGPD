@@ -192,6 +192,15 @@ def _trace_id(at: datetime, question: str, params: dict[str, Any]) -> str:
     return f"{at:%Y%m%d-%H%M%S}-{digest[:6]}"
 
 
+def _total_cost(answer: Answer | None, model: str, usage: dict[str, int],
+                agents_cost: float) -> float | None:
+    """Coût du rédacteur (0 si cache), plus celui des autres agents."""
+    if answer is None or answer.from_cache:
+        return agents_cost
+    writer = estimate_cost(model, usage)
+    return None if writer is None else writer + agents_cost
+
+
 def explain_question(
     question: str,
     searcher: SearchEngine,
@@ -225,6 +234,8 @@ def explain_question(
     params = {**getattr(searcher, "settings", {}), **(params or {})}
     started = time.perf_counter()
     candidates = searcher.search(question, k=k + extra)
+    # Étape 6 : un chercheur à base de LLM signale ses appels (coût, requêtes).
+    steps = list(getattr(searcher, "take_steps", lambda: [])())
     hits = candidates[:k]
     searched = time.perf_counter()
     ranks = searcher.ranks(question, depth=max(RANK_DEPTH, k + extra))
@@ -238,9 +249,14 @@ def explain_question(
         )
     finished = time.perf_counter()
 
-    used = answer.params if answer else {
+    used = dict(answer.params if answer else {
         **(params or {}), "k": k, "extra": extra, "min_similarity": min_similarity,
-    }
+    })
+    if answer is not None:
+        steps += answer.steps
+    if steps:
+        used["agents"] = steps
+    agents_cost = sum(s.get("cost_usd") or 0.0 for s in steps)
     passages = []
     for rank, hit in enumerate(candidates, start=1):
         meaning, words = ranks.get(hit.chunk.chunk_id, (None, None))
@@ -289,7 +305,7 @@ def explain_question(
         llm_model=llm_model,
         citations=citations,
         usage=usage,
-        cost_usd=0.0 if answer is None or answer.from_cache else estimate_cost(llm_model, usage),
+        cost_usd=_total_cost(answer, llm_model, usage, agents_cost),
         from_cache=answer.from_cache if answer else False,
         timings={
             "search": round(searched - started, 3),

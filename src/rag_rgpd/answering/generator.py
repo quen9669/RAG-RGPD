@@ -119,6 +119,8 @@ class Answer:
             ``output_tokens``, et ceux lus ou écrits dans son cache).
         from_cache: ``True`` si la réponse vient du cache local des
             réponses (aucun appel payé).
+        steps: suivi des agents de l'étape 6 (rédacteur, vérificateur) ;
+            vide sans ``--agents``.
     """
 
     question: str
@@ -134,6 +136,7 @@ class Answer:
     params: dict[str, Any] = field(default_factory=dict)
     usage: dict[str, int] = field(default_factory=dict)
     from_cache: bool = False
+    steps: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def cited_numbers(self) -> list[int]:
