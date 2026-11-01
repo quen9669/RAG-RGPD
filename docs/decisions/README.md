@@ -17,3 +17,4 @@ Chaque décision importante du projet a sa fiche : option choisie, options
 | [0010](0010-outils-d-explicabilite.md) | Explicabilité et tests : traces JSONL, Jupyter, cas YAML | 2026-10-30 |
 | [0011](0011-evaluation-et-reclassement.md) | Évaluation maison (rag-eval) et reclassement des passages | 2026-10-30 |
 | [0012](0012-trois-agents.md) | Les trois agents (chercheur, rédacteur, vérificateur) en Python | 2026-11-01 |
+| [0013](0013-deepseek-pour-les-petits-agents.md) | DeepSeek pour les petits agents (essai) | 2026-11-01 |

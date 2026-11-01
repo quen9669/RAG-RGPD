@@ -14,6 +14,7 @@ from typing import Any
 
 from anthropic.types.beta import BetaMessage
 
+from rag_rgpd.agents.deepseek import make_client
 from rag_rgpd.answering.cache import ResponseCache
 from rag_rgpd.answering.generator import FALLBACK_MODELS, usage_dict
 from rag_rgpd.explain.cost import estimate_cost
@@ -59,9 +60,7 @@ class JsonAgent:
             cache: cache local des réponses (évite de repayer un même appel).
         """
         if client is None:
-            import anthropic
-
-            client = anthropic.Anthropic()
+            client = make_client(model)
         self.name = name
         self.system = system
         self.schema = schema

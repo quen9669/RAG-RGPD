@@ -272,3 +272,76 @@ def test_json_agent_utilise_le_cache(tmp_path: Path) -> None:
 
     assert len(client.requests) == 1
     assert first.step["cost_usd"] > 0 and second.step["cost_usd"] == 0.0
+
+
+# --- DeepSeek ----------------------------------------------------------------
+
+
+def _deepseek(reply: dict[str, Any] | list[dict[str, Any]], key: str | None = "sk-test"):
+    import httpx
+
+    from rag_rgpd.agents.deepseek import DeepSeekClient
+
+    replies = [reply] if isinstance(reply, dict) else list(reply)
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=replies.pop(0))
+
+    client = DeepSeekClient(api_key=key, http=httpx.Client(transport=httpx.MockTransport(handler)))
+    return client, seen
+
+
+def _ds_reply(content: str) -> dict[str, Any]:
+    return {"id": "x", "choices": [{"message": {"content": content}}],
+            "usage": {"prompt_tokens": 1000, "completion_tokens": 50,
+                      "prompt_cache_hit_tokens": 400}}
+
+
+def test_deepseek_repond_comme_un_client_anthropic() -> None:
+    client, seen = _deepseek(_ds_reply('{"affirmations": [{"texte": "a", "appuyee": true}]}'))
+    agent = make_verifier(client, model="deepseek-flash")
+
+    verdict = verify(agent, make_answer())
+
+    assert verdict.ok
+    body = json.loads(seen[0].content)
+    assert body["response_format"] == {"type": "json_object"}
+    assert "affirmations" in body["messages"][0]["content"]  # le schéma est dans la consigne
+    assert seen[0].headers["authorization"] == "Bearer sk-test"
+    usage = verdict.step["usage"]
+    assert usage["input_tokens"] == 600 and usage["cache_read_input_tokens"] == 400
+    assert 0 < verdict.step["cost_usd"] < 0.001
+
+
+def test_deepseek_reponse_vide_puis_reussie() -> None:
+    client, _ = _deepseek([_ds_reply(""), _ds_reply('{"requetes": []}')])
+
+    call = make_researcher(client, model="deepseek-flash").call("q")
+
+    assert call.data == {"requetes": []}
+
+
+def test_deepseek_toujours_vide_bloque_la_reponse() -> None:
+    client, _ = _deepseek([_ds_reply(""), _ds_reply("")])
+
+    verdict = verify(make_verifier(client, model="deepseek-flash"), make_answer())
+
+    assert not verdict.ok and "vérification impossible" in verdict.unsupported[0]
+
+
+def test_deepseek_sans_cle() -> None:
+    client, _ = _deepseek(_ds_reply("{}"), key=None)
+
+    with pytest.raises(ValueError, match="DEEPSEEK_API_KEY"):
+        client.beta.messages.create(model="deepseek-flash", system="s", messages=[])
+
+
+def test_choix_du_client_selon_le_modele(monkeypatch: pytest.MonkeyPatch) -> None:
+    from rag_rgpd.agents.deepseek import DeepSeekClient, is_deepseek, make_client
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    assert is_deepseek("deepseek-v4-pro") and not is_deepseek("claude-haiku-5-5")
+    assert isinstance(make_client("deepseek-flash"), DeepSeekClient)
+    assert not isinstance(make_client("claude-haiku-5-5"), DeepSeekClient)

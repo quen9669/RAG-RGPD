@@ -22,6 +22,7 @@ from typing import Any
 
 from anthropic.types.beta import BetaMessage
 
+from rag_rgpd.agents.deepseek import make_client
 from rag_rgpd.answering.cache import ResponseCache
 from rag_rgpd.answering.generator import FALLBACK_MODELS, usage_dict
 from rag_rgpd.explain.cases import Case
@@ -182,9 +183,7 @@ class ClaudeJudge:
                 qu'une fois.
         """
         if client is None:
-            import anthropic
-
-            client = anthropic.Anthropic()
+            client = make_client(model)
         self._client = client
         self.model = model
         self.effort = effort
