@@ -17,6 +17,10 @@ PRICES_USD_PER_MILLION: dict[str, tuple[float, float]] = {
     "claude-sonnet-5-5": (2.00, 10.00),
     "claude-opus-5-5": (4.00, 20.00),
     "claude-fable-5-1": (10.00, 50.00),
+    # DeepSeek (api-docs.deepseek.com, 2026-11-01), tarif « hors pointe » ;
+    # il double aux heures de pointe : c'est une estimation basse.
+    "deepseek-flash": (0.15, 0.60),
+    "deepseek-v4-pro": (0.66, 1.98),
 }
 
 CACHE_READ_FACTOR = 0.1

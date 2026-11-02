@@ -146,6 +146,15 @@ Puis ouvrir un cahier de `notebooks/` et choisir le noyau `.venv` :
 - `02_relire_traces_et_lots.ipynb` : toutes les fiches en tableau, refus par
   barrière, coût total, dernier essai en lot.
 
+## Les trois agents (étape 6)
+
+```bash
+uv run rag-ask "..." --agents --explain   # chercheur + rédacteur + vérificateur
+uv run rag-eval --agents                  # mesure complète (~2 $), comparée à la référence
+```
+
+Voir `docs/decisions/0012-trois-agents.md`. Sans `--agents`, rien ne change.
+
 ## Mesurer la qualité (étape 5)
 
 ```bash
