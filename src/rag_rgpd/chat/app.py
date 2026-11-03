@@ -56,9 +56,15 @@ def render_reply(reply: Reply) -> None:
 ICONS = {"ok": "✅", "stop": "⛔", "skip": "⏭️"}
 
 
+def _label(reply: Reply, index: int) -> str:
+    trace = getattr(reply, "trace", None)
+    return trace.question[:60] if trace else f"Réponse {index + 1}"
+
+
 def render_coulisses(reply: Reply) -> None:
     """Panneau « Coulisses » : comment cette réponse a été fabriquée."""
-    trace = reply.trace
+    # getattr : une réponse gardée en mémoire avant une mise à jour n'a pas de fiche.
+    trace = getattr(reply, "trace", None)
     if trace is None:
         st.info("Pas de fiche pour cette réponse.")
         return
@@ -152,8 +158,7 @@ def main() -> None:
                 last = len(replies) - 1
                 picked = st.selectbox(
                     "Réponse à expliquer", range(len(replies)), index=last,
-                    key="picked", format_func=lambda i: replies[i].trace.question[:60]
-                    if replies[i].trace else f"Réponse {i + 1}")
+                    key="picked", format_func=lambda i: _label(replies[i], i))
                 render_coulisses(replies[picked])
 
 
