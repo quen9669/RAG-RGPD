@@ -3,7 +3,7 @@
 La barrière 3 de l'étape 4 contrôle la forme (une citation existe et se
 retrouve dans le passage). Le vérificateur contrôle le fond : chaque
 affirmation de la réponse est-elle **dite** par un des passages envoyés ?
-Il lit avec un modèle plus fort que le rédacteur (Sonnet 5.5 par défaut).
+Il lit avec Haiku 5.5 par défaut (décision 0014), Sonnet 5.5 en option.
 
 La décision est prise par du code, pas par le modèle : la réponse est
 acceptée seulement si aucune affirmation n'est jugée sans appui. Le modèle
@@ -18,7 +18,7 @@ from typing import Any
 from rag_rgpd.agents.llm import JsonAgent
 from rag_rgpd.answering.generator import Answer
 
-DEFAULT_VERIFIER_MODEL = "claude-sonnet-5-5"
+DEFAULT_VERIFIER_MODEL = "claude-haiku-5-5"
 
 VERIFIER_PROMPT = """\
 Tu vérifies la réponse d'un assistant sur la protection des données (RGPD, \

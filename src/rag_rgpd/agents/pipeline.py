@@ -108,7 +108,7 @@ def add_agent_options(parser: Any) -> None:
                         help="étape 6 : chercheur + rédacteur + vérificateur")
     parser.add_argument("--researcher-model", default="claude-haiku-5-5",
                         help="modèle du chercheur (avec --agents)")
-    parser.add_argument("--verifier-model", default="claude-sonnet-5-5",
+    parser.add_argument("--verifier-model", default="claude-haiku-5-5",
                         help="modèle du vérificateur (avec --agents)")
     parser.add_argument("--rounds", type=int, default=DEFAULT_ROUNDS,
                         help="rédactions au maximum (avec --agents)")
