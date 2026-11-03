@@ -68,6 +68,23 @@ La réponse cite ses sources (`[1]`, `[2]`...) ou répond « Je ne sais pas. »
 avec la raison. Chaque question est tracée dans `data/logs/answers.jsonl`
 (journal des réponses) et `data/traces/traces.jsonl` (fiche de décision complète).
 
+## Utiliser le chat (interface web)
+
+```bash
+uv sync --extra ui          # une seule fois : installe Streamlit
+uv run --extra ui rag-chat  # ouvre le chat dans le navigateur (http://localhost:8501)
+```
+
+À lancer à la racine du dépôt, après `rag-index` et avec la clé dans `.env`.
+Le chat affiche la réponse, ses sources citées (titre, page, lien, extrait) ou
+« je ne sais pas » avec la raison. Dans le panneau de gauche : choix du modèle
+(Haiku par défaut, le moins cher), case « Agents » (plus fiable mais plusieurs
+appels par question) et coût cumulé de la session. Chaque question reste tracée
+comme avec `rag-ask`. Le panneau « Coulisses » (à droite, désactivable) montre comment chaque
+réponse a été fabriquée : étapes et barrières franchies, passages comparés
+avec leurs scores, agents, texte envoyé au modèle, citations vérifiées, durée
+et coût. Arrêt : `Ctrl+C` dans le terminal.
+
 ## Tester et comprendre dans VS Code
 
 ### La fiche de décision
