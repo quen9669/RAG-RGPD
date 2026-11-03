@@ -3,7 +3,7 @@
 La barrière 3 de l'étape 4 contrôle la forme (une citation existe et se
 retrouve dans le passage). Le vérificateur contrôle le fond : chaque
 affirmation de la réponse est-elle **dite** par un des passages envoyés ?
-Il lit avec un modèle plus fort que le rédacteur (Sonnet 5.5 par défaut).
+Il lit avec Haiku 5.5 par défaut (décision 0014), Sonnet 5.5 en option.
 
 La décision est prise par du code, pas par le modèle : la réponse est
 acceptée seulement si aucune affirmation n'est jugée sans appui. Le modèle
@@ -18,7 +18,7 @@ from typing import Any
 from rag_rgpd.agents.llm import JsonAgent
 from rag_rgpd.answering.generator import Answer
 
-DEFAULT_VERIFIER_MODEL = "claude-sonnet-5-5"
+DEFAULT_VERIFIER_MODEL = "claude-haiku-5-5"
 
 VERIFIER_PROMPT = """\
 Tu vérifies la réponse d'un assistant sur la protection des données (RGPD, \
@@ -30,11 +30,23 @@ Vérifie uniquement à partir des passages fournis, pas de tes connaissances : \
 une affirmation vraie en droit mais absente des passages n'est PAS appuyée.
 
 Découpe la réponse en affirmations (une idée vérifiable chacune). Ne compte \
-pas : les phrases d'introduction ou de conclusion sans contenu, les remarques \
-sur ce que les passages ne couvrent pas, le développement d'un sigle, et \
-l'avertissement « ne remplace pas un avis juridique ». Pour chacune, \
-« appuyee » est vrai si un des passages fournis dit bien cela (pas seulement \
-un sujet voisin, et sans transposer à un droit ce qui est dit d'un autre).
+PAS comme affirmation, donc ne les liste pas : \
+- les phrases d'introduction ou de conclusion sans contenu ; \
+- les remarques sur ce que les passages ne couvrent pas ; \
+- l'avertissement « ne remplace pas un avis juridique » ; \
+- les explications de vocabulaire ou de sigle (ce qu'est un considérant, \
+un responsable du traitement, la CNPD, un niveau d'amende) et les remarques \
+sur la nature d'un texte (« le considérant éclaire l'article ») : ce sont \
+des repères pour le lecteur, pas des règles ; \
+- les simples reformulations en langage courant d'une idée qui figure dans \
+un passage, même si les mots changent.
+
+Pour chaque affirmation retenue, « appuyee » est vrai si un des passages \
+fournis dit bien cela, ou le dit autrement, ou en découle directement sans \
+rien ajouter. Elle est fausse seulement si elle ajoute un fait, un chiffre, \
+un délai ou une condition absents des passages, ou si elle transpose à un \
+droit ce qui est dit d'un autre. En cas de doute sur une simple \
+reformulation, considère-la comme appuyée.
 """
 
 SCHEMA: dict[str, Any] = {
