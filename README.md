@@ -80,7 +80,10 @@ Le chat affiche la réponse, ses sources citées (titre, page, lien, extrait) ou
 « je ne sais pas » avec la raison. Dans le panneau de gauche : choix du modèle
 (Haiku par défaut, le moins cher), case « Agents » (plus fiable mais plusieurs
 appels par question) et coût cumulé de la session. Chaque question reste tracée
-comme avec `rag-ask`. Arrêt : `Ctrl+C` dans le terminal.
+comme avec `rag-ask`. Le panneau « Coulisses » (à droite, désactivable) montre comment chaque
+réponse a été fabriquée : étapes et barrières franchies, passages comparés
+avec leurs scores, agents, texte envoyé au modèle, citations vérifiées, durée
+et coût. Arrêt : `Ctrl+C` dans le terminal.
 
 ## Tester et comprendre dans VS Code
 

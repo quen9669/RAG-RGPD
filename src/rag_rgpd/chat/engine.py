@@ -13,7 +13,7 @@ from typing import Any
 
 from rag_rgpd.agents.pipeline import DEFAULT_ROUNDS, with_agents
 from rag_rgpd.answering.generator import Answer, AnswerGenerator
-from rag_rgpd.explain.trace import DEFAULT_EXTRA, explain_question, write_trace
+from rag_rgpd.explain.trace import DEFAULT_EXTRA, Trace, explain_question, write_trace
 from rag_rgpd.retrieval.index import DEFAULT_K, DEFAULT_MIN_SIMILARITY
 
 
@@ -39,6 +39,7 @@ class Reply:
     sources: list[Source]
     cost_usd: float | None
     trace_id: str
+    trace: Trace | None = None
 
 
 def _pages(start: int | None, end: int | None) -> str:
@@ -47,7 +48,8 @@ def _pages(start: int | None, end: int | None) -> str:
     return f"p. {start}-{end}" if end and end != start else f"p. {start}"
 
 
-def to_reply(answer: Answer, cost_usd: float | None, trace_id: str) -> Reply:
+def to_reply(answer: Answer, cost_usd: float | None, trace_id: str,
+             trace: Trace | None = None) -> Reply:
     """Transforme une ``Answer`` en ``Reply`` (sources citées seulement)."""
     sources = []
     if not answer.refused:
@@ -58,7 +60,7 @@ def to_reply(answer: Answer, cost_usd: float | None, trace_id: str) -> Reply:
             sources.append(Source(number, chunk.heading,
                                   _pages(chunk.page_start, chunk.page_end),
                                   chunk.url, quotes, chunk.text))
-    return Reply(answer.text, answer.refused, answer.reason, sources, cost_usd, trace_id)
+    return Reply(answer.text, answer.refused, answer.reason, sources, cost_usd, trace_id, trace)
 
 
 class ChatEngine:
@@ -90,4 +92,4 @@ class ChatEngine:
         if self.trace_path is not None:
             write_trace(trace, self.trace_path)
         assert answer is not None  # un générateur est toujours fourni
-        return to_reply(answer, trace.cost_usd, trace.trace_id)
+        return to_reply(answer, trace.cost_usd, trace.trace_id, trace)

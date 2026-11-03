@@ -33,3 +33,25 @@ def test_refus_sans_source(engine: ChatEngine) -> None:
     assert reply.refused
     assert reply.sources == []
     assert reply.reason
+
+
+def test_coulisses_reponse(engine: ChatEngine) -> None:
+    from rag_rgpd.chat.coulisses import passage_rows, stages, timing_text
+
+    reply = engine.ask("droit à l'effacement de mes données", model="x", min_similarity=0.0)
+    steps = stages(reply.trace)
+
+    assert [s.status for s in steps].count("stop") == 0
+    assert steps[-1].summary.startswith("réponse")
+    assert passage_rows(reply.trace)[0]["Rang"] == 1
+    assert "total" in timing_text(reply.trace)
+
+
+def test_coulisses_refus_barriere_1(engine: ChatEngine) -> None:
+    from rag_rgpd.chat.coulisses import stages
+
+    reply = engine.ask("effacement", model="x", min_similarity=0.99)
+    steps = stages(reply.trace)
+
+    assert steps[-1].status == "stop"
+    assert "Barrière 1" in steps[-1].title

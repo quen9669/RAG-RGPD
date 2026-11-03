@@ -17,6 +17,7 @@ from rag_rgpd.answering.cli import (
     make_reranker,
 )
 from rag_rgpd.answering.generator import DEFAULT_MODEL
+from rag_rgpd.chat.coulisses import agent_rows, passage_rows, stages, timing_text
 from rag_rgpd.chat.engine import ChatEngine, Reply
 from rag_rgpd.explain.trace import DEFAULT_TRACE_PATH
 from rag_rgpd.retrieval.embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
@@ -52,8 +53,45 @@ def render_reply(reply: Reply) -> None:
     st.caption(f"{DISCLAIMER}{cost} · fiche : `{reply.trace_id}`")
 
 
+ICONS = {"ok": "✅", "stop": "⛔", "skip": "⏭️"}
+
+
+def render_coulisses(reply: Reply) -> None:
+    """Panneau « Coulisses » : comment cette réponse a été fabriquée."""
+    trace = reply.trace
+    if trace is None:
+        st.info("Pas de fiche pour cette réponse.")
+        return
+    st.subheader("Étapes")
+    for stage in stages(trace):
+        st.markdown(f"{ICONS[stage.status]} **{stage.title}**  \n{stage.summary}")
+    st.subheader("Passages retrouvés")
+    st.caption("Classés par pertinence. Seuls ceux marqués « oui » sont lus par le modèle.")
+    rows = passage_rows(trace)
+    st.dataframe(rows, hide_index=True, use_container_width=True)
+    st.bar_chart({"Similarité": {f"{r['Rang']}": r["Similarité"] for r in rows}},
+                 y_label="Similarité avec la question", x_label="Rang")
+    agents = agent_rows(trace)
+    if agents:
+        st.subheader("Agents")
+        st.dataframe(agents, hide_index=True, use_container_width=True)
+    if trace.request:
+        with st.expander("Texte envoyé au modèle"):
+            st.code(trace.request.get("system", ""), language=None, wrap_lines=True)
+            st.caption(f"+ {len(trace.sent_passages)} passages et la question.")
+    if trace.raw_text:
+        with st.expander("Réponse brute du modèle"):
+            st.code(trace.raw_text, language=None, wrap_lines=True)
+    if trace.citations:
+        with st.expander("Citations vérifiées"):
+            for c in trace.citations:
+                mark = "✅" if c["verified"] else "❌"
+                st.markdown(f"{mark} [{c['source_number']}] {c['label']}  \n> {c['cited_text']}")
+    st.caption(timing_text(trace) + f" · fiche `{trace.trace_id}`")
+
+
 def main() -> None:
-    st.set_page_config(page_title="Assistant RGPD", page_icon="⚖️")
+    st.set_page_config(page_title="Assistant RGPD", page_icon="⚖️", layout="wide")
     st.title("Assistant RGPD")
     st.caption("Pose une question sur la protection des données : l'assistant "
                "répond avec ses sources, ou dit « je ne sais pas ».")
@@ -65,6 +103,8 @@ def main() -> None:
                              help="Haiku est le moins cher, Opus le plus cher.")
         agents = st.toggle("Agents (plus fiable, plus cher)", value=False,
                            help="Chercheur + rédacteur + vérificateur : plusieurs appels par question.")
+        behind = st.toggle("Afficher les coulisses", value=True,
+                           help="Montre à côté du chat comment chaque réponse est fabriquée.")
         if st.button("Nouvelle conversation"):
             st.session_state.history = []
             st.session_state.total = 0.0
@@ -73,36 +113,48 @@ def main() -> None:
 
     history: list[tuple[str, str | Reply]] = st.session_state.setdefault("history", [])
     st.session_state.setdefault("total", 0.0)
-    for role, content in history:
-        with st.chat_message(role):
-            if isinstance(content, Reply):
-                render_reply(content)
-            else:
-                st.markdown(content)
 
     question = st.chat_input("Ta question sur le RGPD…")
-    if not question:
-        return
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        load_env(Path(".env"))
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        st.error("Clé manquante : ajouter ANTHROPIC_API_KEY=... dans le fichier .env.")
-        return
-    history.append(("user", question))
-    with st.chat_message("user"):
-        st.markdown(question)
-    with st.chat_message("assistant"):
-        with st.spinner("Recherche et rédaction…"):
-            try:
-                reply = get_engine().ask(question, model=model, agents=agents)
-            except anthropic.APIError as error:  # clé refusée, réseau, crédit...
-                st.error(f"Erreur de l'API Anthropic : {_api_error_message(error)}")
-                history.pop()
-                return
-        render_reply(reply)
-    history.append(("assistant", reply))
-    st.session_state.total += reply.cost_usd or 0.0
-    st.rerun()
+    if question:
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            load_env(Path(".env"))
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            st.error("Clé manquante : ajouter ANTHROPIC_API_KEY=... dans le fichier .env.")
+        else:
+            with st.spinner("Recherche et rédaction…"):
+                try:
+                    reply = get_engine().ask(question, model=model, agents=agents)
+                except anthropic.APIError as error:  # clé refusée, réseau, crédit...
+                    st.error(f"Erreur de l'API Anthropic : {_api_error_message(error)}")
+                else:
+                    history.append(("user", question))
+                    history.append(("assistant", reply))
+                    st.session_state.total += reply.cost_usd or 0.0
+                    st.session_state.pop("picked", None)
+                    st.rerun()
+
+    left, right = st.columns([3, 2]) if behind else (st.container(), None)
+    with left:
+        for role, content in history:
+            with st.chat_message(role):
+                if isinstance(content, Reply):
+                    render_reply(content)
+                else:
+                    st.markdown(content)
+    if right is not None:
+        with right:
+            st.header("Coulisses")
+            replies = [c for _, c in history if isinstance(c, Reply)]
+            if not replies:
+                st.caption("Pose une question : ici s'affichera, étape par étape, "
+                           "comment la réponse est fabriquée.")
+            else:
+                last = len(replies) - 1
+                picked = st.selectbox(
+                    "Réponse à expliquer", range(len(replies)), index=last,
+                    key="picked", format_func=lambda i: replies[i].trace.question[:60]
+                    if replies[i].trace else f"Réponse {i + 1}")
+                render_coulisses(replies[picked])
 
 
 main()
