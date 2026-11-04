@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, fields, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -50,10 +51,48 @@ Valeur de départ prudente pour BGE-M3 ; elle sera calibrée à l'étape 5 avec
 le jeu de questions (trop haute, on refuse à tort ; trop basse, on laisse
 passer des questions hors sujet)."""
 
+DOMAINS = ("rgpd", "open-data", "ferroviaire", "transfrontalier")
+"""Domaines connus (étape 8, décision 0015). Chaque morceau porte l'un d'eux,
+fixé par ``domain`` dans ``config/sources.toml``."""
+
+DOMAIN_MIN_SIMILARITY: dict[str, float] = {}
+"""Seuils de refus propres à un domaine. Vide au départ : tous les domaines
+utilisent ``DEFAULT_MIN_SIMILARITY`` tant qu'ils n'ont pas été calibrés avec
+des questions de ce domaine (hors-sujet compris). Exemple une fois mesuré :
+``{"ferroviaire": 0.50}``."""
+
 DEFAULT_POOL = 30
 """Passages relus par le modèle de reclassement : assez pour rattraper un
 bon article classé 11e ou 20e par la recherche hybride, assez peu pour
 rester autour d'une seconde sur un PC sans carte graphique."""
+
+def min_similarity_for(domains: Sequence[str] | None) -> float:
+    """Seuil de refus à appliquer pour une recherche limitée à ``domains``.
+
+    Sans filtre (``None`` ou vide), on cherche partout : le seuil par défaut.
+    Avec plusieurs domaines, on prend le plus strict, car une réponse
+    croisée ne doit pas passer sous le seuil exigé par l'un d'eux.
+
+    Args:
+        domains: domaines demandés, ou ``None`` pour tous.
+
+    Returns:
+        La similarité cosinus minimale du meilleur passage.
+    """
+    if not domains:
+        return DEFAULT_MIN_SIMILARITY
+    return max(DOMAIN_MIN_SIMILARITY.get(d, DEFAULT_MIN_SIMILARITY) for d in domains)
+
+
+def _domain_filter(domains: Sequence[str]) -> str:
+    """Filtre SQL (syntaxe LanceDB) : morceaux dont le domaine est demandé."""
+    for domain in domains:
+        # Les domaines viennent de la ligne de commande : on n'accepte que
+        # lettres, chiffres et tiret, ce qui exclut toute apostrophe.
+        if not re.fullmatch(r"[a-z0-9-]+", domain):
+            raise ValueError(f"domaine invalide : {domain!r}")
+    return "domain IN (" + ", ".join(f"'{d}'" for d in domains) + ")"
+
 
 _REFERENCE = re.compile(
     r"\b(?P<kind>articles?|art\.|considérants?)\s*(?P<number>\d{1,3})\b",
@@ -176,6 +215,7 @@ def _schema(dimension: int) -> pa.Schema:
             ("licence", pa.string()),
             ("source_sha256", pa.string()),
             ("raw_path", pa.string()),
+            ("domain", pa.string()),
             ("search_text", pa.string()),
             ("vector", pa.list_(pa.float32(), dimension)),
         ]
@@ -300,6 +340,7 @@ class Searcher:
         reranker: Reranker | None = None,
         pool: int = DEFAULT_POOL,
         pin_cited_articles: bool = True,
+        domains: Sequence[str] | None = None,
     ) -> None:
         """Ouvre l'index.
 
@@ -311,6 +352,8 @@ class Searcher:
             pool: passages relus par le modèle de reclassement.
             pin_cited_articles: placer en tête les articles cités par leur
                 numéro dans la question.
+            domains: limiter la recherche à ces domaines (voir ``DOMAINS``) ;
+                ``None`` pour chercher partout.
 
         Raises:
             FileNotFoundError: si l'index n'existe pas.
@@ -327,6 +370,8 @@ class Searcher:
         self.reranker = reranker
         self.pool = pool
         self.pin_cited_articles = pin_cited_articles
+        self.domains = tuple(domains) if domains else None
+        self._domain_where = _domain_filter(self.domains) if self.domains else None
 
     @property
     def settings(self) -> dict[str, object]:
@@ -335,6 +380,7 @@ class Searcher:
             "reranker": self.reranker.model_name if self.reranker else "",
             "pool": self.pool if self.reranker else None,
             "pin_cited_articles": self.pin_cited_articles,
+            "domains": list(self.domains) if self.domains else None,
         }
 
     def _hit(self, row: dict, query_vector: np.ndarray, **extra: object) -> Hit:
@@ -358,13 +404,14 @@ class Searcher:
         """
         query_vector = self._embedder.embed([question])[0]
         limit = max(k, self.pool) if self.reranker else k
-        rows = (
+        query = (
             self._table.search(query_type="hybrid")
             .vector(query_vector.tolist())
             .text(question)
-            .limit(limit)
-            .to_list()
         )
+        if self._domain_where:
+            query = query.where(self._domain_where, prefilter=True)
+        rows = query.limit(limit).to_list()
         hits = [self._hit(row, query_vector) for row in rows]
 
         if self.reranker is not None and hits:
@@ -375,11 +422,11 @@ class Searcher:
 
         labels = cited_labels(question) if self.pin_cited_articles else []
         if labels:
+            where = _label_filter(labels)
+            if self._domain_where:
+                where = f"({where}) AND {self._domain_where}"
             pinned_rows = (
-                self._table.search()
-                .where(_label_filter(labels), prefilter=True)
-                .limit(max(k, 50))
-                .to_list()
+                self._table.search().where(where, prefilter=True).limit(max(k, 50)).to_list()
             )
             # Ordre des articles cités, puis ordre du texte (l'identifiant du
             # morceau finit par son numéro d'ordre dans le document).
@@ -408,9 +455,15 @@ class Searcher:
             à partir de 1.
         """
         query_vector = self._embedder.embed([question])[0]
-        by_meaning = self._table.search(query_vector.tolist()).limit(depth).to_list()
+        by_meaning = self._table.search(query_vector.tolist())
+        if self._domain_where:
+            by_meaning = by_meaning.where(self._domain_where, prefilter=True)
+        by_meaning = by_meaning.limit(depth).to_list()
         try:
-            by_words = self._table.search(question, query_type="fts").limit(depth).to_list()
+            by_words = self._table.search(question, query_type="fts")
+            if self._domain_where:
+                by_words = by_words.where(self._domain_where, prefilter=True)
+            by_words = by_words.limit(depth).to_list()
         except ValueError:
             # Question sans aucun mot indexable (que des mots vides) : la
             # recherche plein texte n'a rien à chercher.

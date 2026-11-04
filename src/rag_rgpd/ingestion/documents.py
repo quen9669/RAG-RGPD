@@ -33,6 +33,9 @@ class DocumentSource:
         title: titre lisible du document.
         url: adresse de téléchargement.
         licence: licence ou conditions d'usage relevées (voir docs/sources/).
+        domain: sujet du document, qui sert d'étiquette de filtre à la
+            recherche (``"rgpd"``, ``"open-data"``, ``"ferroviaire"``,
+            ``"transfrontalier"``). Défaut : ``"rgpd"``.
         headers: en-têtes HTTP propres à ce document, par exemple ``Accept``
             et ``Accept-Language`` pour demander un format et une langue.
     """
@@ -42,6 +45,7 @@ class DocumentSource:
     title: str
     url: str
     licence: str
+    domain: str = "rgpd"
     headers: dict[str, str] = field(default_factory=dict)
 
 

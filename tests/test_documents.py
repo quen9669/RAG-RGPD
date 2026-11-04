@@ -63,3 +63,16 @@ def test_ingestion_de_bout_en_bout(make_client, tmp_path: Path) -> None:
 
     # Deuxième passage : même contenu, donc rien de nouveau.
     assert ingest_documents(documents, make_client(handler), store, now=now) == [None]
+
+
+def test_domaine_lu_depuis_les_sources_avec_rgpd_par_defaut(tmp_path: Path) -> None:
+    path = tmp_path / "sources.toml"
+    path.write_text(
+        '[[documents]]\nid = "a"\nsource = "eur-lex"\ntitle = "A"\nurl = "https://x/a"\n'
+        'licence = "CC BY 4.0"\ndomain = "ferroviaire"\n\n'
+        '[[documents]]\nid = "b"\nsource = "eur-lex"\ntitle = "B"\nurl = "https://x/b"\n'
+        'licence = "CC BY 4.0"\n',
+        encoding="utf-8",
+    )
+
+    assert [d.domain for d in load_sources(path)] == ["ferroviaire", "rgpd"]

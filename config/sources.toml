@@ -12,6 +12,7 @@ title = "Règlement (UE) 2016/679 (RGPD), texte en français"
 # https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32016R0679
 url = "https://publications.europa.eu/resource/celex/32016R0679"
 licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+domain = "rgpd"
 headers = { Accept = "application/xhtml+xml", Accept-Language = "fra" }
 
 [[documents]]
@@ -20,6 +21,7 @@ source = "cnpd"
 title = "CNPD, formation 1 : notions élémentaires (2018)"
 url = "https://cnpd.public.lu/dam-assets/fr/actualites/national/2018/formations/fr-formation-cnpd-1-notions-elementaires.pdf"
 licence = "Usage personnel et privé uniquement, pas de rediffusion (voir docs/sources/cnpd.md)"
+domain = "rgpd"
 
 [[documents]]
 id = "cnpd-brochure-responsable-sous-traitant"
@@ -27,3 +29,90 @@ source = "cnpd"
 title = "CNPD, brochure responsable du traitement et sous-traitant"
 url = "https://cnpd.public.lu/content/dam/cnpd/fr/publications/brochures/brochure-rt-st/brochure-rt-st-fr.pdf"
 licence = "Usage personnel et privé uniquement, pas de rediffusion (voir docs/sources/cnpd.md)"
+domain = "rgpd"
+
+# --- Étape 8a : élargissement du corpus (EUR-Lex, même licence que le RGPD) ---
+# `domain` filtre la recherche (rgpd, open-data, ferroviaire, transfrontalier).
+# Textes tels que publiés au Journal officiel (version d'origine, pas
+# consolidée) : voir docs/sources/eur-lex.md. Les STI (spécifications
+# techniques d'interopérabilité) seront ajoutées après choix des règlements.
+
+[[documents]]
+id = "directive-donnees-ouvertes-2019-1024"
+source = "eur-lex"
+title = "Directive (UE) 2019/1024 sur les données ouvertes et la réutilisation des informations du secteur public"
+# Page de référence : https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32019L1024
+url = "https://publications.europa.eu/resource/celex/32019L1024"
+licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+domain = "open-data"
+headers = { Accept = "application/xhtml+xml", Accept-Language = "fra" }
+
+[[documents]]
+id = "directive-espace-ferroviaire-2012-34"
+source = "eur-lex"
+title = "Directive 2012/34/UE établissant un espace ferroviaire unique européen"
+# Page de référence : https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32012L0034
+url = "https://publications.europa.eu/resource/celex/32012L0034"
+licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+domain = "ferroviaire"
+headers = { Accept = "application/xhtml+xml", Accept-Language = "fra" }
+
+[[documents]]
+id = "directive-interoperabilite-2016-797"
+source = "eur-lex"
+title = "Directive (UE) 2016/797 relative à l'interopérabilité du système ferroviaire"
+# Page de référence : https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32016L0797
+url = "https://publications.europa.eu/resource/celex/32016L0797"
+licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+domain = "ferroviaire"
+headers = { Accept = "application/xhtml+xml", Accept-Language = "fra" }
+
+[[documents]]
+id = "directive-securite-ferroviaire-2016-798"
+source = "eur-lex"
+title = "Directive (UE) 2016/798 relative à la sécurité ferroviaire"
+# Page de référence : https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32016L0798
+url = "https://publications.europa.eu/resource/celex/32016L0798"
+licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+domain = "ferroviaire"
+headers = { Accept = "application/xhtml+xml", Accept-Language = "fra" }
+
+[[documents]]
+id = "directive-gouvernance-ferroviaire-2016-2370"
+source = "eur-lex"
+title = "Directive (UE) 2016/2370 (ouverture du marché du transport ferroviaire de voyageurs et gouvernance de l'infrastructure)"
+# Page de référence : https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32016L2370
+url = "https://publications.europa.eu/resource/celex/32016L2370"
+licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+domain = "ferroviaire"
+headers = { Accept = "application/xhtml+xml", Accept-Language = "fra" }
+
+[[documents]]
+id = "reglement-agence-ferroviaire-2016-796"
+source = "eur-lex"
+title = "Règlement (UE) 2016/796 relatif à l'Agence de l'Union européenne pour les chemins de fer (ERA)"
+# Page de référence : https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32016R0796
+url = "https://publications.europa.eu/resource/celex/32016R0796"
+licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+domain = "ferroviaire"
+headers = { Accept = "application/xhtml+xml", Accept-Language = "fra" }
+
+[[documents]]
+id = "reglement-droits-voyageurs-2021-782"
+source = "eur-lex"
+title = "Règlement (UE) 2021/782 sur les droits et obligations des voyageurs ferroviaires"
+# Page de référence : https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32021R0782
+url = "https://publications.europa.eu/resource/celex/32021R0782"
+licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+domain = "ferroviaire"
+headers = { Accept = "application/xhtml+xml", Accept-Language = "fra" }
+
+[[documents]]
+id = "reglement-securite-sociale-883-2004"
+source = "eur-lex"
+title = "Règlement (CE) n° 883/2004 sur la coordination des systèmes de sécurité sociale"
+# Page de référence : https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32004R0883
+url = "https://publications.europa.eu/resource/celex/32004R0883"
+licence = "CC BY 4.0, décision 2011/833/UE (voir docs/sources/eur-lex.md)"
+domain = "transfrontalier"
+headers = { Accept = "application/xhtml+xml", Accept-Language = "fra" }

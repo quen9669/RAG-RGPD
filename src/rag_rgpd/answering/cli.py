@@ -35,11 +35,12 @@ from rag_rgpd.retrieval.embeddings import DEFAULT_MODEL as DEFAULT_EMBEDDING_MOD
 from rag_rgpd.retrieval.embeddings import Embedder, SentenceTransformerEmbedder
 from rag_rgpd.retrieval.index import (
     DEFAULT_K,
-    DEFAULT_MIN_SIMILARITY,
     DEFAULT_POOL,
+    DOMAINS,
     Hit,
     Searcher,
     build_index,
+    min_similarity_for,
 )
 from rag_rgpd.retrieval.rerank import DEFAULT_MODEL as DEFAULT_RERANK_MODEL
 from rag_rgpd.retrieval.rerank import CrossEncoderReranker, Reranker
@@ -111,6 +112,9 @@ def add_search_options(parser: argparse.ArgumentParser) -> None:
                         help="passages relus par le modèle de reclassement")
     parser.add_argument("--no-rerank", action="store_true",
                         help="sans reclassement (ordre de la recherche hybride, comme à l'étape 4)")
+    parser.add_argument("--domain", action="append", choices=DOMAINS, default=None,
+                        help="limiter la recherche à un domaine (répétable) ; "
+                             "sans cette option, on cherche partout")
     parser.add_argument("--no-pin", action="store_true",
                         help="ne pas placer en tête les articles cités par leur numéro")
 
@@ -123,6 +127,7 @@ def open_searcher(args: argparse.Namespace) -> Searcher:
         reranker=None if args.no_rerank else make_reranker(args.rerank_model),
         pool=args.pool,
         pin_cited_articles=not args.no_pin,
+        domains=args.domain,
     )
 
 
@@ -184,7 +189,8 @@ def ask_main(argv: list[str] | None = None) -> None:
     parser.add_argument("question")
     add_search_options(parser)
     parser.add_argument("--k", type=int, default=DEFAULT_K, help="passages retrouvés")
-    parser.add_argument("--min-similarity", type=float, default=DEFAULT_MIN_SIMILARITY)
+    parser.add_argument("--min-similarity", type=float, default=None,
+                        help="seuil de refus ; défaut : celui du ou des domaines demandés")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="modèle Claude")
     parser.add_argument("--search-only", action="store_true",
                         help="affiche les passages retrouvés, sans appeler le LLM")
@@ -203,6 +209,8 @@ def ask_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--env-file", type=Path, default=Path(".env"),
                         help="fichier local contenant ANTHROPIC_API_KEY")
     args = parser.parse_args(argv)
+    if args.min_similarity is None:
+        args.min_similarity = min_similarity_for(args.domain)
     load_env(args.env_file)
 
     searcher = open_searcher(args)
