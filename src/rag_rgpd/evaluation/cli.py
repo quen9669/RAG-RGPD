@@ -32,7 +32,7 @@ from rag_rgpd.evaluation.metrics import compare, format_summary, score_case, sum
 from rag_rgpd.explain.cases import DEFAULT_CASES_PATH, Case, load_cases
 from rag_rgpd.explain.cost import estimate_cost
 from rag_rgpd.explain.trace import ANSWERED, DEFAULT_TRACE_PATH, explain_question, write_trace
-from rag_rgpd.retrieval.index import DEFAULT_K, DEFAULT_MIN_SIMILARITY
+from rag_rgpd.retrieval.index import DEFAULT_K, DEFAULT_MIN_SIMILARITY, min_similarity_for
 
 DEFAULT_REFERENCE = Path("evals/reference.json")
 
@@ -106,7 +106,8 @@ def eval_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES_PATH)
     parser.add_argument("--only", nargs="+", default=None, help="identifiants des cas à lancer")
     parser.add_argument("--k", type=int, default=DEFAULT_K)
-    parser.add_argument("--min-similarity", type=float, default=DEFAULT_MIN_SIMILARITY)
+    parser.add_argument("--min-similarity", type=float, default=None,
+                        help="seuil de refus ; défaut : celui du ou des domaines demandés")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="modèle qui rédige")
     parser.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL, help="modèle correcteur")
     parser.add_argument("--search-only", action="store_true",
@@ -127,6 +128,8 @@ def eval_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--trace", type=Path, default=DEFAULT_TRACE_PATH)
     parser.add_argument("--env-file", type=Path, default=Path(".env"))
     args = parser.parse_args(argv)
+    if args.min_similarity is None:
+        args.min_similarity = min_similarity_for(args.domain)
     ask_cli.load_env(args.env_file)
 
     cases = load_cases(args.cases)

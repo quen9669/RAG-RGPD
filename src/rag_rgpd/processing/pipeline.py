@@ -59,6 +59,10 @@ class Chunk:
         source_sha256: empreinte du fichier brut dont vient le morceau
             (lineage : on peut toujours remonter à la version exacte).
         raw_path: chemin du fichier brut, relatif au dossier des données.
+        domain: sujet du document (``"rgpd"``, ``"open-data"``, ``"ferroviaire"``,
+            ``"transfrontalier"``), repris de ``config/sources.toml``. Il sert
+            à filtrer la recherche. Valeur par défaut ``"rgpd"`` : les
+            fichiers de morceaux produits avant l'étape 8 restent lisibles.
     """
 
     chunk_id: str
@@ -77,6 +81,7 @@ class Chunk:
     licence: str
     source_sha256: str
     raw_path: str
+    domain: str = "rgpd"
 
 
 def latest_documents(store: RawStore) -> list[ManifestEntry]:
@@ -115,6 +120,7 @@ def chunk_document(
     store: RawStore,
     *,
     title: str,
+    domain: str = "rgpd",
     max_chars: int = DEFAULT_MAX_CHARS,
     min_chars: int = DEFAULT_MIN_CHARS,
 ) -> list[Chunk]:
@@ -124,6 +130,7 @@ def chunk_document(
         entry: ligne du manifeste décrivant le fichier brut.
         store: stockage des fichiers bruts.
         title: titre lisible du document.
+        domain: domaine du document (étiquette de filtre).
         max_chars: taille maximale d'un morceau.
         min_chars: taille sous laquelle des pages voisines sont fusionnées.
 
@@ -159,6 +166,7 @@ def chunk_document(
             licence=entry.licence,
             source_sha256=entry.sha256,
             raw_path=entry.path,
+            domain=domain,
         )
         for rank, piece in enumerate(pieces, start=1)
     ]

@@ -2,20 +2,23 @@
 
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
+from rag_rgpd.retrieval import index as index_module
 from rag_rgpd.retrieval.index import (
     IndexMismatchError,
     Searcher,
     build_index,
     cited_labels,
     embedding_text,
+    min_similarity_for,
     read_meta,
 )
 
-from fakes import CHUNKS, FakeEmbedder, FakeReranker
+from fakes import CHUNKS, FakeEmbedder, FakeReranker, make_chunk
 
 
 @pytest.fixture
@@ -120,4 +123,68 @@ def test_reclassement_fixe_l_ordre(index_dir: Path) -> None:
     assert hits[0].rerank_score == 1.0
     assert reranker.calls == [("droit à l'effacement de mes données", 4)]
     assert searcher.settings == {"reranker": "faux-reclasseur", "pool": 4,
-                                 "pin_cited_articles": True}
+                                 "pin_cited_articles": True, "domains": None}
+
+
+# --- Étape 8 : domaines -------------------------------------------------
+
+RAIL = make_chunk(
+    9, "Article 5", "Droit au transport de vélos",
+    "Les entreprises ferroviaires permettent aux voyageurs d'embarquer leur vélo dans le train.",
+    document_id="voyageurs-ue", domain="ferroviaire",
+)
+
+
+@pytest.fixture
+def mixed_index(tmp_path: Path) -> Path:
+    build_index([*CHUNKS, RAIL], FakeEmbedder(), tmp_path / "index")
+    return tmp_path / "index"
+
+
+def test_le_filtre_de_domaine_ecarte_les_autres_sujets(mixed_index: Path) -> None:
+    hits = Searcher(mixed_index, FakeEmbedder(), domains=["ferroviaire"]).search("vélo train", k=5)
+
+    assert [h.chunk.document_id for h in hits] == ["voyageurs-ue"]
+
+
+def test_sans_filtre_tous_les_domaines_sont_cherches(mixed_index: Path) -> None:
+    hits = Searcher(mixed_index, FakeEmbedder()).search("vélo train", k=5)
+
+    assert {h.chunk.domain for h in hits} == {"rgpd", "ferroviaire"}
+
+
+def test_le_filtre_vaut_aussi_pour_les_articles_cites(mixed_index: Path) -> None:
+    # « Article 5 » existe seulement dans le domaine ferroviaire ici ; le
+    # filtre rgpd ne doit pas le remonter.
+    hits = Searcher(mixed_index, FakeEmbedder(), domains=["rgpd"]).search("article 5 vélo", k=5)
+
+    assert all(h.chunk.domain == "rgpd" for h in hits)
+
+
+def test_les_rangs_respectent_le_filtre(mixed_index: Path) -> None:
+    searcher = Searcher(mixed_index, FakeEmbedder(), domains=["rgpd"])
+
+    assert RAIL.chunk_id not in searcher.ranks("vélo train")
+
+
+def test_les_domaines_sont_traces(mixed_index: Path) -> None:
+    assert Searcher(mixed_index, FakeEmbedder(), domains=["rgpd"]).settings["domains"] == ["rgpd"]
+    assert Searcher(mixed_index, FakeEmbedder()).settings["domains"] is None
+
+
+def test_domaine_invalide_refuse(mixed_index: Path) -> None:
+    with pytest.raises(ValueError):
+        Searcher(mixed_index, FakeEmbedder(), domains=["x' OR '1'='1"])
+
+
+def test_seuil_par_domaine(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(index_module.DOMAIN_MIN_SIMILARITY, "ferroviaire", 0.5)
+
+    assert min_similarity_for(None) == index_module.DEFAULT_MIN_SIMILARITY
+    assert min_similarity_for(["rgpd"]) == index_module.DEFAULT_MIN_SIMILARITY
+    assert min_similarity_for(["ferroviaire"]) == 0.5
+    assert min_similarity_for(["rgpd", "ferroviaire"]) == 0.5  # le plus strict
+
+
+def test_ancien_morceau_sans_domaine_reste_rgpd() -> None:
+    assert replace(CHUNKS[0]).domain == "rgpd"

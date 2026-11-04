@@ -41,7 +41,9 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     store = RawStore(args.data_dir)
-    titles = {doc.id: doc.title for doc in load_sources(args.sources)}
+    sources = load_sources(args.sources)
+    titles = {doc.id: doc.title for doc in sources}
+    domains = {doc.id: doc.domain for doc in sources}
     output = args.output or args.data_dir / "processed" / "chunks.jsonl"
 
     chunks: list[Chunk] = []
@@ -54,6 +56,7 @@ def main(argv: list[str] | None = None) -> None:
                 entry,
                 store,
                 title=titles.get(entry.document_id, entry.document_id),
+                domain=domains.get(entry.document_id, "rgpd"),
                 max_chars=args.max_chars,
                 min_chars=args.min_chars,
             )
