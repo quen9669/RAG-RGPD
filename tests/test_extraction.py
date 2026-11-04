@@ -122,3 +122,31 @@ def test_acte_ue_retours_a_la_ligne_du_fichier_ignores() -> None:
     [article] = extract_eu_act(html)
 
     assert article.paragraphs[0].text.splitlines()[1] == "a) la personne concernée a consenti;"
+
+
+ANNEXES_HTML = """<html><body>
+<p class="ti-art">Article 1</p><p class="sti-art">Objet</p>
+<p class="normal">1. Le présent texte fixe des règles.</p>
+<p class="normal">Fait à Bruxelles, le 1er janvier 2020.</p>
+<p class="normal">Par le Parlement européen</p><p class="normal">Le président</p>
+<p class="doc-ti">ANNEXE I</p><p class="doc-ti">LISTE DES GARES</p>
+<p class="normal">1. Luxembourg</p>
+<table><tbody><tr><td><p class="normal">a)</p></td><td><p class="normal">Gare centrale</p></td></tr></tbody></table>
+<p class="doc-ti">ANNEXE II</p>
+<p class="normal">Texte sans titre.</p>
+</body></html>"""
+
+
+def test_annexes_apres_la_signature_sont_extraites() -> None:
+    sections = extract_eu_act(ANNEXES_HTML.encode())
+
+    assert [s.label for s in sections] == ["Article 1", "Annexe I", "Annexe II"]
+    assert sections[1].title == "LISTE DES GARES"
+    assert "Gare centrale" in sections[1].paragraphs[-1].text
+    assert sections[2].paragraphs[0].text == "Texte sans titre."
+
+
+def test_signatures_non_gardees_avant_les_annexes() -> None:
+    texts = " ".join(p.text for s in extract_eu_act(ANNEXES_HTML.encode()) for p in s.paragraphs)
+
+    assert "Par le Parlement" not in texts
