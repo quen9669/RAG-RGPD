@@ -35,6 +35,11 @@ _RECITAL = re.compile(r"^\((\d+)\)\s*(.+)", re.DOTALL)  # « (1) La protection..
 # Le texte s'arrête à la formule de signature ; ce qui suit (signatures,
 # notes de bas de page) n'apporte rien aux réponses.
 _END_OF_TEXT = re.compile(r"^Fait à \w+")
+# Les annexes suivent la formule de signature dans le XHTML de Cellar : une
+# ligne « ANNEXE » seule, ou « ANNEXE I », « ANNEXE IV », « ANNEXE 2 ».
+_ANNEX = re.compile(r"^ANNEXE(?:\s+(?P<number>[IVXLC]+|\d+))?$")
+# Classes des lignes qui donnent l'intitulé d'une annexe (ancien et nouveau format).
+_ANNEX_TITLE_CLASSES = {"doc-ti", "title-annex-1", "ti-grseq-1"}
 
 
 def _classes(tag: Tag) -> set[str]:
@@ -126,7 +131,7 @@ class _Builder:
 
 
 def extract_eu_act(content: bytes) -> list[Section]:
-    """Découpe le XHTML d'un acte européen en considérants et articles.
+    """Découpe le XHTML d'un acte européen en considérants, articles et annexes.
 
     Le préambule (« LE PARLEMENT EUROPÉEN ET LE CONSEIL... », « vu le
     traité... ») est ignoré : il ne contient pas de règle. Les considérants,
@@ -136,13 +141,16 @@ def extract_eu_act(content: bytes) -> list[Section]:
         content: fichier XHTML brut (l'encodage est lu dans le fichier).
 
     Returns:
-        Les considérants puis les articles, dans l'ordre du texte.
+        Les considérants, les articles puis les annexes, dans l'ordre du texte.
+        Une annexe devient une section « Annexe I » ; les tableaux qu'elle
+        contient sont lus ligne par ligne, comme ceux des articles.
     """
     soup = BeautifulSoup(content, "html.parser")
     sections: list[Section] = []
     chapter = subsection = ""
     waiting_for_title: str | None = None  # "chapter" ou "section"
     current: _Builder | None = None
+    annex_header = False
 
     def flush() -> None:
         nonlocal current
@@ -150,11 +158,33 @@ def extract_eu_act(content: bytes) -> list[Section]:
             sections.append(current.build())
         current = None
 
+    in_trailer = False  # signatures : on saute tout jusqu'à la prochaine annexe
+
     for classes, text in _blocks(soup):
         if "note" in classes:
             continue
+
+        annex = _ANNEX.match(text)
+        if annex:
+            flush()
+            in_trailer = False
+            number = annex.group("number")
+            current = _Builder(label=f"Annexe {number}" if number else "Annexe", context=())
+            annex_header = True
+            continue
         if _END_OF_TEXT.match(text):
-            break
+            flush()
+            in_trailer = True
+            continue
+        if in_trailer:
+            continue
+        if annex_header and current is not None and current.label.startswith("Annexe"):
+            # Intitulé de l'annexe : une ou plusieurs lignes de titre qui
+            # suivent « ANNEXE I », avant le premier texte.
+            if classes & _ANNEX_TITLE_CLASSES:
+                current.title = f"{current.title} {text}".strip()
+                continue
+            annex_header = False
 
         if "ti-section-1" in classes:
             flush()
