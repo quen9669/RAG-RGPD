@@ -13,11 +13,12 @@ import pytest
 from rag_rgpd.agents.llm import JsonAgent
 from rag_rgpd.agents.pipeline import VERIFICATION_FAILED, AgentGenerator
 from rag_rgpd.agents.researcher import AgentSearcher, make_researcher, merge_hits
+from rag_rgpd.agents.router import RoutedSearcher, make_router
 from rag_rgpd.agents.verifier import make_verifier, verify
 from rag_rgpd.answering.generator import ClaudeGenerator
 from rag_rgpd.explain.trace import ANSWERED, REFUSED, explain_question
 from rag_rgpd.retrieval.index import Hit, Searcher, build_index
-from fakes import CHUNKS, FakeEmbedder, FakeReranker, response, text_block
+from fakes import CHUNKS, FakeEmbedder, FakeReranker, make_chunk, response, text_block
 
 
 class ScriptedClient:
@@ -345,3 +346,57 @@ def test_choix_du_client_selon_le_modele(monkeypatch: pytest.MonkeyPatch) -> Non
     assert is_deepseek("deepseek-v4-pro") and not is_deepseek("claude-haiku-5-5")
     assert isinstance(make_client("deepseek-flash"), DeepSeekClient)
     assert not isinstance(make_client("claude-haiku-5-5"), DeepSeekClient)
+
+
+# --- Routeur de domaines (étape 8) -------------------------------------------
+
+@pytest.fixture
+def mixed_searcher(tmp_path: Path) -> Searcher:
+    rail = make_chunk(
+        9, "Article 17", "Entretien des voies",
+        "Le gestionnaire de l'infrastructure ferroviaire assure l'entretien des voies.",
+        document_id="infra-ue", domain="ferroviaire", chunk_id="infra-ue-abcdef12-0009",
+    )
+    build_index([*CHUNKS, rail], FakeEmbedder(), tmp_path / "index")
+    return Searcher(tmp_path / "index", FakeEmbedder())
+
+
+def test_le_routeur_limite_la_recherche_aux_domaines_choisis(mixed_searcher: Searcher) -> None:
+    client = ScriptedClient(json_reply({"domaines": ["rgpd"]}))
+    routed = RoutedSearcher(mixed_searcher, make_router(client))
+
+    hits = routed.search("entretien des voies du gestionnaire", k=5)
+
+    assert {h.chunk.domain for h in hits} == {"rgpd"}
+    steps = routed.take_steps()
+    assert steps[0]["agent"] == "routeur"
+    assert steps[0]["domaines"] == ["rgpd"]
+
+
+def test_le_routeur_est_appele_une_fois_par_question(mixed_searcher: Searcher) -> None:
+    client = ScriptedClient(json_reply({"domaines": ["ferroviaire"]}))
+    routed = RoutedSearcher(mixed_searcher, make_router(client))
+
+    routed.search("entretien des voies", k=3)
+    routed.ranks("entretien des voies")
+
+    assert len(client.requests) == 1
+
+
+def test_liste_vide_ou_panne_du_routeur_cherche_partout(mixed_searcher: Searcher) -> None:
+    for reply in (json_reply({"domaines": []}), response(text_block("illisible"))):
+        routed = RoutedSearcher(mixed_searcher, make_router(ScriptedClient(reply)))
+
+        hits = routed.search("vélo entretien des voies délégué", k=5)
+
+        assert {h.chunk.domain for h in hits} == {"rgpd", "ferroviaire"}
+
+
+def test_le_suivi_du_routeur_remonte_par_le_chercheur(mixed_searcher: Searcher) -> None:
+    routed = RoutedSearcher(mixed_searcher, make_router(ScriptedClient(
+        json_reply({"domaines": ["rgpd"]}))))
+    agent_searcher = AgentSearcher(routed, None)
+
+    agent_searcher.search("effacement des données", k=2)
+
+    assert [s["agent"] for s in agent_searcher.take_steps()] == ["routeur"]

@@ -19,7 +19,7 @@ from pathlib import Path
 import anthropic
 from dotenv import load_dotenv
 
-from rag_rgpd.agents.pipeline import add_agent_options, with_agents
+from rag_rgpd.agents.pipeline import add_agent_options, add_router_options, with_agents, with_router
 from rag_rgpd.answering.cache import DEFAULT_CACHE_DIR, ResponseCache
 from rag_rgpd.answering.generator import (
     DEFAULT_MODEL,
@@ -203,6 +203,7 @@ def ask_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--cache", action="store_true",
                         help=f"réutilise une réponse déjà payée ({DEFAULT_CACHE_DIR.as_posix()})")
     add_agent_options(parser)
+    add_router_options(parser)
     parser.add_argument("--log", type=Path, default=Path("data/logs/answers.jsonl"))
     parser.add_argument("--trace", type=Path, default=DEFAULT_TRACE_PATH,
                         help="fichier des fiches de décision")
@@ -220,6 +221,7 @@ def ask_main(argv: list[str] | None = None) -> None:
     if not args.search_only:
         require_api_key()
         generator = make_generator(args.model, cache)
+    searcher = with_router(args, searcher, generator, cache)
     searcher, generator = with_agents(args, searcher, generator, cache,
                                       min_similarity=args.min_similarity)
     try:

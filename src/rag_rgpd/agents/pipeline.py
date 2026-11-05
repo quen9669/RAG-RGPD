@@ -17,11 +17,13 @@ agents est fixe et chaque décision est visible dans la fiche de décision
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import replace
 from typing import Any
 
 from rag_rgpd.agents.llm import JsonAgent
 from rag_rgpd.agents.researcher import AgentSearcher, make_researcher
+from rag_rgpd.agents.router import RoutedSearcher, make_router
 from rag_rgpd.agents.verifier import make_verifier, verify
 from rag_rgpd.answering.cache import ResponseCache
 from rag_rgpd.answering.generator import Answer, AnswerGenerator, refuse
@@ -112,6 +114,27 @@ def add_agent_options(parser: Any) -> None:
                         help="modèle du vérificateur (avec --agents)")
     parser.add_argument("--rounds", type=int, default=DEFAULT_ROUNDS,
                         help="rédactions au maximum (avec --agents)")
+
+
+def add_router_options(parser: Any) -> None:
+    """Options du routage par domaine, communes à ``rag-ask`` et ``rag-eval``."""
+    parser.add_argument("--route", action=argparse.BooleanOptionalAction, default=True,
+                        help="un petit modèle choisit les domaines avant la recherche "
+                             "(sans clé d'API ou avec --domain : désactivé)")
+    parser.add_argument("--router-model", default="claude-haiku-5-5",
+                        help="modèle du routeur (avec --route)")
+
+
+def with_router(args: Any, searcher: Any, generator: Any, cache: ResponseCache | None) -> Any:
+    """Enveloppe la recherche d'un routeur de domaines si c'est demandé.
+
+    Pas de routage sans rédacteur (recherche seule, pas de clé d'API) ni quand
+    l'utilisateur impose lui-même des domaines avec ``--domain``.
+    """
+    if not getattr(args, "route", False) or generator is None or getattr(args, "domain", None):
+        return searcher
+    return RoutedSearcher(searcher, make_router(model=getattr(args, "router_model",
+                                                              "claude-haiku-5-5"), cache=cache))
 
 
 def with_agents(args: Any, searcher: Any, generator: Any, cache: ResponseCache | None,

@@ -35,7 +35,7 @@ def get_engine() -> ChatEngine:
                         reranker=make_reranker(RERANK_MODEL))
     cache = ResponseCache()
     return ChatEngine(searcher, lambda model: make_generator(model, cache),
-                      trace_path=DEFAULT_TRACE_PATH)
+                      trace_path=DEFAULT_TRACE_PATH, route=True)
 
 
 def render_reply(reply: Reply) -> None:

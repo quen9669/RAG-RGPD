@@ -23,7 +23,7 @@ from typing import Any
 
 import anthropic
 
-from rag_rgpd.agents.pipeline import add_agent_options, with_agents
+from rag_rgpd.agents.pipeline import add_agent_options, add_router_options, with_agents, with_router
 from rag_rgpd.answering import cli as ask_cli
 from rag_rgpd.answering.cache import ResponseCache
 from rag_rgpd.answering.generator import DEFAULT_MODEL
@@ -118,6 +118,7 @@ def eval_main(argv: list[str] | None = None) -> None:
                         help="rappelle les LLM même si la réponse est en cache")
     ask_cli.add_search_options(parser)
     add_agent_options(parser)
+    add_router_options(parser)
     parser.add_argument("--reference", type=Path, default=DEFAULT_REFERENCE)
     parser.add_argument("--save-reference", action="store_true",
                         help="enregistre ce résultat comme nouvelle référence")
@@ -146,6 +147,7 @@ def eval_main(argv: list[str] | None = None) -> None:
         if not args.no_judge:
             judge = ClaudeJudge(model=args.judge_model, cache=cache)
     searcher = ask_cli.open_searcher(args)
+    searcher = with_router(args, searcher, generator, cache)
     searcher, generator = with_agents(args, searcher, generator, cache,
                                       min_similarity=args.min_similarity)
     settings = {

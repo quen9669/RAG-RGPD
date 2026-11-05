@@ -20,3 +20,4 @@ Chaque décision importante du projet a sa fiche : option choisie, options
 | [0013](0013-deepseek-pour-les-petits-agents.md) | DeepSeek pour les petits agents (essai) | 2026-11-01 |
 | [0014](0014-verificateur-souple-full-haiku.md) | Vérificateur assoupli et agents entièrement en Haiku | 2026-11-03 |
 | [0015](0015-domaines-et-seuils.md) | Étape 8 : domaines, filtre de recherche et seuils par domaine | 2026-11-04 |
+| [0016](0016-routage-des-domaines.md) | Étape 8 : routage automatique des domaines | 2026-11-05 |

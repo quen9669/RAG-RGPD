@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any
 
-from rag_rgpd.agents.pipeline import DEFAULT_ROUNDS, with_agents
+from rag_rgpd.agents.pipeline import DEFAULT_ROUNDS, with_agents, with_router
 from rag_rgpd.answering.generator import Answer, AnswerGenerator
 from rag_rgpd.explain.trace import DEFAULT_EXTRA, Trace, explain_question, write_trace
 from rag_rgpd.retrieval.index import DEFAULT_K, DEFAULT_MIN_SIMILARITY
@@ -70,10 +70,13 @@ class ChatEngine:
         searcher: moteur de recherche (index ouvert).
         make_generator: fabrique ``modèle -> rédacteur``.
         trace_path: où écrire les fiches de décision (``None`` = nulle part).
+        route: un petit modèle choisit les domaines avant la recherche
+            (décision 0016).
     """
 
     def __init__(self, searcher: Any, make_generator: Callable[[str], AnswerGenerator],
-                 trace_path: Any = None) -> None:
+                 trace_path: Any = None, route: bool = False) -> None:
+        self.route = route
         self.searcher = searcher
         self.make_generator = make_generator
         self.trace_path = trace_path
@@ -85,7 +88,10 @@ class ChatEngine:
         """Répond à une question."""
         args = SimpleNamespace(agents=agents, researcher_model=researcher_model,
                                verifier_model=verifier_model, rounds=DEFAULT_ROUNDS)
-        searcher, generator = with_agents(args, self.searcher, self.make_generator(model),
+        generator = self.make_generator(model)
+        routed = with_router(SimpleNamespace(route=self.route, domain=None), self.searcher,
+                             generator, None)
+        searcher, generator = with_agents(args, routed, generator,
                                           None, min_similarity=min_similarity)
         trace, answer = explain_question(question, searcher, generator, k=k,
                                          min_similarity=min_similarity, extra=DEFAULT_EXTRA)
