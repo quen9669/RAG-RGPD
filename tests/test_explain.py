@@ -307,7 +307,7 @@ def test_rag_ask_explain_puis_rag_trace(
     traces = tmp_path / "traces.jsonl"
 
     ask_cli.ask_main(["droit à l'effacement", "--explain", "--index-dir", str(index_dir),
-                      "--min-similarity", "0.1", "--trace", str(traces),
+                      "--min-similarity", "0.1", "--trace", str(traces), "--no-route",
                       "--log", str(tmp_path / "log.jsonl"),
                       "--env-file", str(tmp_path / "absent.env")])
     out = capsys.readouterr().out

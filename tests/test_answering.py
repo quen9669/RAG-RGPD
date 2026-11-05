@@ -145,7 +145,7 @@ def test_rag_ask_affiche_les_sources_et_journalise(
     log = tmp_path / "answers.jsonl"
 
     cli.ask_main(["délégué à la protection des données", "--index-dir", str(index_dir),
-                  "--k", "2", "--min-similarity", "0.1", "--log", str(log),
+                  "--k", "2", "--min-similarity", "0.1", "--log", str(log), "--no-route",
                   "--env-file", str(tmp_path / "absent.env")])
 
     out = capsys.readouterr().out
@@ -191,7 +191,7 @@ def test_rag_ask_lit_la_cle_dans_env(
     env_file.write_text("ANTHROPIC_API_KEY=sk-ant-test\n", encoding="utf-8")
 
     cli.ask_main(["effacement", "--index-dir", str(index_dir), "--k", "1",
-                  "--min-similarity", "0", "--env-file", str(env_file),
+                  "--min-similarity", "0", "--no-route", "--env-file", str(env_file),
                   "--log", str(tmp_path / "log.jsonl")])
 
     assert "Oui[1]" in capsys.readouterr().out
@@ -218,4 +218,4 @@ def test_erreur_api_lisible(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 
     with pytest.raises(SystemExit, match="credit balance is too low"):
         cli.ask_main(["effacement", "--index-dir", str(index_dir), "--min-similarity", "0",
-                      "--env-file", str(tmp_path / "absent.env")])
+                      "--no-route", "--env-file", str(tmp_path / "absent.env")])

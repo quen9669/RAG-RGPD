@@ -129,9 +129,10 @@ class AgentSearcher:
         return getattr(self._inner, "reranker", None)
 
     def take_steps(self) -> list[dict[str, Any]]:
-        """Renvoie (et vide) le suivi des appels du chercheur depuis le dernier appel."""
+        """Renvoie (et vide) le suivi des appels du chercheur (et du routeur)."""
         steps, self._steps = self._steps, []
-        return steps
+        # Le routeur de domaines, s'il y en a un, passe avant le chercheur.
+        return [*getattr(self._inner, "take_steps", lambda: [])(), *steps]
 
     def ranks(self, question: str, *, depth: int = 50) -> dict[str, tuple[int | None, int | None]]:
         """Rangs de la question d'origine (explication de la fiche de décision)."""

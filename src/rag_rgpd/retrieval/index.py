@@ -371,7 +371,8 @@ class Searcher:
         self.pool = pool
         self.pin_cited_articles = pin_cited_articles
         self.domains = tuple(domains) if domains else None
-        self._domain_where = _domain_filter(self.domains) if self.domains else None
+        if self.domains:
+            _domain_filter(self.domains)  # refuse tout de suite un domaine invalide
 
     @property
     def settings(self) -> dict[str, object]:
@@ -383,6 +384,11 @@ class Searcher:
             "domains": list(self.domains) if self.domains else None,
         }
 
+    def _where(self, domains: Sequence[str] | None) -> str | None:
+        """Filtre de domaine : celui demandé pour cet appel, sinon celui du moteur."""
+        chosen = tuple(domains) if domains else self.domains
+        return _domain_filter(chosen) if chosen else None
+
     def _hit(self, row: dict, query_vector: np.ndarray, **extra: object) -> Hit:
         return Hit(
             chunk=_row_to_chunk(row),
@@ -392,16 +398,21 @@ class Searcher:
             **extra,
         )
 
-    def search(self, question: str, *, k: int = DEFAULT_K) -> list[Hit]:
+    def search(
+        self, question: str, *, k: int = DEFAULT_K, domains: Sequence[str] | None = None
+    ) -> list[Hit]:
         """Retrouve les ``k`` passages les plus pertinents.
 
         Args:
             question: question en langage naturel.
             k: nombre de passages à renvoyer.
+            domains: domaines à chercher pour cette question seulement
+                (sinon ceux du moteur, sinon tous) ; sert au routage.
 
         Returns:
             Les passages, du plus pertinent au moins pertinent.
         """
+        domain_where = self._where(domains)
         query_vector = self._embedder.embed([question])[0]
         limit = max(k, self.pool) if self.reranker else k
         query = (
@@ -409,8 +420,8 @@ class Searcher:
             .vector(query_vector.tolist())
             .text(question)
         )
-        if self._domain_where:
-            query = query.where(self._domain_where, prefilter=True)
+        if domain_where:
+            query = query.where(domain_where, prefilter=True)
         rows = query.limit(limit).to_list()
         hits = [self._hit(row, query_vector) for row in rows]
 
@@ -423,8 +434,8 @@ class Searcher:
         labels = cited_labels(question) if self.pin_cited_articles else []
         if labels:
             where = _label_filter(labels)
-            if self._domain_where:
-                where = f"({where}) AND {self._domain_where}"
+            if domain_where:
+                where = f"({where}) AND {domain_where}"
             pinned_rows = (
                 self._table.search().where(where, prefilter=True).limit(max(k, 50)).to_list()
             )
@@ -452,7 +463,9 @@ class Searcher:
             hits = pinned + [h for h in hits if h.chunk.chunk_id not in ids]
         return hits[:k]
 
-    def ranks(self, question: str, *, depth: int = 50) -> dict[str, tuple[int | None, int | None]]:
+    def ranks(
+        self, question: str, *, depth: int = 50, domains: Sequence[str] | None = None
+    ) -> dict[str, tuple[int | None, int | None]]:
         """Rang de chaque passage dans chacune des deux recherches, avant fusion.
 
         Sert à expliquer un classement : un passage peut remonter parce qu'il
@@ -465,20 +478,22 @@ class Searcher:
             question: question en langage naturel.
             depth: profondeur examinée dans chaque liste ; au-delà, le rang
                 vaut ``None``.
+            domains: domaines de la recherche expliquée (comme pour ``search``).
 
         Returns:
             Pour chaque ``chunk_id`` vu : (rang par le sens, rang par mots-clés),
             à partir de 1.
         """
+        domain_where = self._where(domains)
         query_vector = self._embedder.embed([question])[0]
         by_meaning = self._table.search(query_vector.tolist())
-        if self._domain_where:
-            by_meaning = by_meaning.where(self._domain_where, prefilter=True)
+        if domain_where:
+            by_meaning = by_meaning.where(domain_where, prefilter=True)
         by_meaning = by_meaning.limit(depth).to_list()
         try:
             by_words = self._table.search(question, query_type="fts")
-            if self._domain_where:
-                by_words = by_words.where(self._domain_where, prefilter=True)
+            if domain_where:
+                by_words = by_words.where(domain_where, prefilter=True)
             by_words = by_words.limit(depth).to_list()
         except ValueError:
             # Question sans aucun mot indexable (que des mots vides) : la
