@@ -428,9 +428,25 @@ class Searcher:
             pinned_rows = (
                 self._table.search().where(where, prefilter=True).limit(max(k, 50)).to_list()
             )
-            # Ordre des articles cités, puis ordre du texte (l'identifiant du
-            # morceau finit par son numéro d'ordre dans le document).
-            pinned_rows.sort(key=lambda r: (_label_position(r["label"], labels), r["chunk_id"]))
+            # Plusieurs textes ont chacun leur « article 17 » (étape 8) : on ne
+            # garde que ceux des documents déjà jugés pertinents par la
+            # recherche (les ``k`` premiers passages), et on met en tête le
+            # document le mieux classé. Sans document commun, on garde tout.
+            doc_rank: dict[str, int] = {}
+            for h in hits[:k]:
+                doc_rank.setdefault(h.chunk.document_id, len(doc_rank))
+            if any(r["document_id"] in doc_rank for r in pinned_rows):
+                pinned_rows = [r for r in pinned_rows if r["document_id"] in doc_rank]
+            # Document le mieux classé, puis ordre des articles cités, puis
+            # ordre du texte (l'identifiant du morceau finit par son numéro
+            # d'ordre dans le document).
+            pinned_rows.sort(
+                key=lambda r: (
+                    doc_rank.get(r["document_id"], len(doc_rank)),
+                    _label_position(r["label"], labels),
+                    r["chunk_id"],
+                )
+            )
             pinned = [self._hit(row, query_vector, pinned=True) for row in pinned_rows]
             ids = {h.chunk.chunk_id for h in pinned}
             hits = pinned + [h for h in hits if h.chunk.chunk_id not in ids]

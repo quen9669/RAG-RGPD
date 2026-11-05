@@ -188,3 +188,23 @@ def test_seuil_par_domaine(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_ancien_morceau_sans_domaine_reste_rgpd() -> None:
     assert replace(CHUNKS[0]).domain == "rgpd"
+
+
+def test_article_cite_dans_plusieurs_textes_garde_le_texte_pertinent(tmp_path: Path) -> None:
+    # Deux textes ont un « Article 17 » ; la question porte sur l'effacement.
+    # Seul l'article du document pertinent doit être épinglé en tête.
+    rail = make_chunk(
+        9, "Article 17", "Entretien des voies",
+        "Le gestionnaire de l'infrastructure ferroviaire assure l'entretien des voies.",
+        document_id="infra-ue", domain="ferroviaire",
+        chunk_id="infra-ue-abcdef12-0009",
+    )
+    build_index([*CHUNKS, rail], FakeEmbedder(), tmp_path / "index")
+
+    hits = Searcher(tmp_path / "index", FakeEmbedder()).search(
+        "article 17 effacement de mes données", k=2
+    )
+
+    assert hits[0].chunk.document_id == "rgpd-fr"
+    assert hits[0].pinned
+    assert not any(h.pinned and h.chunk.document_id == "infra-ue" for h in hits)
