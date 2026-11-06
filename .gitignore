@@ -42,3 +42,8 @@ data/batches/
 # phrases recopiées reprennent des extraits, même règle. Seuls les scores de
 # référence (evals/reference.json, sans aucun texte) sont versionnés.
 data/evals/
+
+# Graphify (régénérable)
+graphify-out/cache/
+graphify-out/graph.html
+graphify-out/.graphify_build_state.json
