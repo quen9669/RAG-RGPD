@@ -10,14 +10,15 @@ etat: en_construction        # en_service | degrade | arrete | en_construction
 maj: 2026-11-17
 
 ecarts:
-  corriges: []
-  en_cours:
-    - RAG-08                 # expedition.yaml fait ; /health et /vitrine.json restent à faire
+  corriges:
+    - RAG-08                 # expedition.yaml, /health et /vitrine.json (rag-contrat)
+  en_cours: []
 
 fait:
   - "Ingestion, découpage et index hybride BM25 + dense (RRF) sur ~1900 morceaux"
   - "Réponses citées, refus sous le seuil, 3 agents, évaluation sur 52 questions"
   - "Alignement de la feuille de route sur le référentiel (RAG-08)"
+  - "Contrat commun : /health et /vitrine.json (uv run rag-contrat)"
 
 prochaines:
   - "RAG-01 : appels LLM via OmniRoute (clé rag-rgpd), puis RAG-06 : relancer les 52 questions"
