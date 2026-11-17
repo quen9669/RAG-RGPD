@@ -58,11 +58,12 @@ uv run rag-ask --model claude-sonnet-5-5 "..."   # modèle plus fort si besoin
 
 Le premier `rag-index` télécharge le modèle BGE-M3 (environ 2 Go).
 
-Pour `rag-ask`, il faut une clé d'API Anthropic. Elle reste propre à ce
-projet : copier `.env.example` en `.env` à la racine du dépôt et remplacer
-`sk-ant-...` par la vraie clé. Le fichier `.env` est exclu de Git ; ne
-jamais écrire la clé ailleurs. Une variable `ANTHROPIC_API_KEY` déjà
-définie dans le terminal reste prioritaire.
+Tous les appels au LLM passent par OmniRoute (format OpenAI, 0 €). Il faut
+deux variables : `OMNIROUTE_BASE_URL` (`http://omniroute:20128/v1` sur le
+réseau `llm-net`) et `OMNIROUTE_API_KEY` (clé `rag-rgpd`, rangée dans le coffre
+`apps/rag-rgpd/OMNIROUTE_API_KEY`). En production, elles viennent du compose ;
+pour un essai local, copier `.env.example` en `.env` (exclu de Git). Une
+variable déjà définie dans le terminal reste prioritaire.
 
 La réponse cite ses sources (`[1]`, `[2]`...) ou répond « Je ne sais pas. »
 avec la raison. Chaque question est tracée dans `data/logs/answers.jsonl`

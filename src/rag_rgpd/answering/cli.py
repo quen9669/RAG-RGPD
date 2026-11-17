@@ -16,9 +16,9 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-import anthropic
 from dotenv import load_dotenv
 
+from rag_rgpd.agents.omniroute import KEY_VARIABLE, OmniRouteError
 from rag_rgpd.agents.pipeline import add_agent_options, add_router_options, with_agents, with_router
 from rag_rgpd.answering.cache import DEFAULT_CACHE_DIR, ResponseCache
 from rag_rgpd.answering.generator import (
@@ -83,23 +83,9 @@ def load_env(env_file: Path) -> None:
 
 def require_api_key() -> None:
     """Arrête le programme avec un message clair si la clé manque."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        sys.exit("Clé manquante : ajouter ANTHROPIC_API_KEY=... dans le fichier .env "
-                 "(voir README), ou utiliser --search-only.")
-
-
-def _api_error_message(error: anthropic.APIError) -> str:
-    """Message court et compréhensible pour une erreur de l'API."""
-    if isinstance(error, anthropic.AuthenticationError):
-        return "clé refusée, vérifier ANTHROPIC_API_KEY dans .env."
-    if isinstance(error, anthropic.APIConnectionError):
-        return "connexion impossible, vérifier l'accès à Internet."
-    body = getattr(error, "body", None)
-    if isinstance(body, dict):
-        detail = body.get("error", {}).get("message")
-        if detail:
-            return detail
-    return error.message
+    if not os.environ.get(KEY_VARIABLE):
+        sys.exit(f"Clé manquante : définir {KEY_VARIABLE} (coffre ou fichier .env local, "
+                 "voir README), ou utiliser --search-only.")
 
 
 def add_search_options(parser: argparse.ArgumentParser) -> None:
@@ -208,7 +194,7 @@ def ask_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--trace", type=Path, default=DEFAULT_TRACE_PATH,
                         help="fichier des fiches de décision")
     parser.add_argument("--env-file", type=Path, default=Path(".env"),
-                        help="fichier local contenant ANTHROPIC_API_KEY")
+                        help="fichier local contenant OMNIROUTE_API_KEY")
     args = parser.parse_args(argv)
     if args.min_similarity is None:
         args.min_similarity = min_similarity_for(args.domain)
@@ -230,10 +216,10 @@ def ask_main(argv: list[str] | None = None) -> None:
             min_similarity=args.min_similarity, extra=args.extra,
             params={"embedding_model": args.embedding_model},
         )
-    except anthropic.APIError as error:
-        # Clé refusée, crédit épuisé, réseau coupé... : une phrase lisible
+    except OmniRouteError as error:
+        # Clé refusée, réseau coupé... : une phrase lisible
         # plutôt qu'une trace Python de quarante lignes.
-        sys.exit(f"Erreur de l'API Anthropic : {_api_error_message(error)}")
+        sys.exit(f"Erreur d'OmniRoute : {error}")
     write_trace(trace, args.trace)
 
     if answer is None:

@@ -16,8 +16,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-import anthropic
-
+from rag_rgpd.agents.omniroute import OmniRouteError
 from rag_rgpd.answering import cli as ask_cli
 from rag_rgpd.answering.cache import ResponseCache
 from rag_rgpd.answering.generator import DEFAULT_MODEL
@@ -103,8 +102,8 @@ def batch_main(argv: list[str] | None = None) -> None:
             trace_path=args.trace, params={"embedding_model": args.embedding_model},
             progress=print,
         )
-    except anthropic.APIError as error:
-        sys.exit(f"Erreur de l'API Anthropic : {ask_cli._api_error_message(error)}")
+    except OmniRouteError as error:
+        sys.exit(f"Erreur d'OmniRoute : {error}")
 
     out = args.out or Path("data/batches") / f"{datetime.now(UTC):%Y%m%d-%H%M%S}.csv"
     write_csv(rows, out)

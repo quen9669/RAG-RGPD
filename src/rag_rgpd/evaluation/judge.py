@@ -22,9 +22,9 @@ from typing import Any
 
 from anthropic.types.beta import BetaMessage
 
-from rag_rgpd.agents.deepseek import make_client
+from rag_rgpd.agents.omniroute import make_client
 from rag_rgpd.answering.cache import ResponseCache
-from rag_rgpd.answering.generator import FALLBACK_MODELS, usage_dict
+from rag_rgpd.answering.generator import usage_dict
 from rag_rgpd.explain.cases import Case
 from rag_rgpd.explain.trace import Trace
 
@@ -175,7 +175,7 @@ class ClaudeJudge:
         """Prépare le client.
 
         Args:
-            client: client ``anthropic.Anthropic`` (un faux dans les tests).
+            client: client OmniRoute (un faux dans les tests).
             model: modèle correcteur.
             effort: profondeur de réflexion ; ``medium`` suffit pour comparer
                 des phrases à des passages courts.
@@ -206,8 +206,6 @@ class ClaudeJudge:
             },
             "messages": [{"role": "user", "content": judge_message(case, trace)}],
         }
-        if self.model in FALLBACK_MODELS:
-            request |= {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
 
         cached = None
         key = ""

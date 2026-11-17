@@ -14,9 +14,9 @@ from typing import Any
 
 from anthropic.types.beta import BetaMessage
 
-from rag_rgpd.agents.deepseek import make_client
+from rag_rgpd.agents.omniroute import make_client
 from rag_rgpd.answering.cache import ResponseCache
-from rag_rgpd.answering.generator import FALLBACK_MODELS, usage_dict
+from rag_rgpd.answering.generator import usage_dict
 from rag_rgpd.explain.cost import estimate_cost
 
 
@@ -55,7 +55,7 @@ class JsonAgent:
             system: consigne de l'agent.
             schema: schéma JSON de sa réponse.
             model: modèle Claude utilisé.
-            client: client ``anthropic.Anthropic`` (un faux dans les tests).
+            client: client OmniRoute (un faux dans les tests).
             effort: profondeur de réflexion.
             cache: cache local des réponses (évite de repayer un même appel).
         """
@@ -87,8 +87,6 @@ class JsonAgent:
             },
             "messages": [{"role": "user", "content": message}],
         }
-        if self.model in FALLBACK_MODELS:
-            request |= {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
 
         cached = key = None
         if self._cache is not None:

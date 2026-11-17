@@ -5,12 +5,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import anthropic
 import streamlit as st
 
+from rag_rgpd.agents.omniroute import KEY_VARIABLE, OmniRouteError
 from rag_rgpd.answering.cache import ResponseCache
 from rag_rgpd.answering.cli import (
-    _api_error_message,
     load_env,
     make_embedder,
     make_generator,
@@ -122,16 +121,16 @@ def main() -> None:
 
     question = st.chat_input("Ta question sur le RGPD…")
     if question:
-        if not os.environ.get("ANTHROPIC_API_KEY"):
+        if not os.environ.get(KEY_VARIABLE):
             load_env(Path(".env"))
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            st.error("Clé manquante : ajouter ANTHROPIC_API_KEY=... dans le fichier .env.")
+        if not os.environ.get(KEY_VARIABLE):
+            st.error("Clé manquante : la variable OMNIROUTE_API_KEY n'est pas définie.")
         else:
             with st.spinner("Recherche et rédaction…"):
                 try:
                     reply = get_engine().ask(question, model=model, agents=agents)
-                except anthropic.APIError as error:  # clé refusée, réseau, crédit...
-                    st.error(f"Erreur de l'API Anthropic : {_api_error_message(error)}")
+                except OmniRouteError as error:  # clé refusée, réseau...
+                    st.error(f"Erreur d'OmniRoute : {error}")
                 else:
                     history.append(("user", question))
                     history.append(("assistant", reply))

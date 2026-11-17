@@ -87,8 +87,8 @@ def test_reponse(case: Case, searcher) -> None:
     from rag_rgpd.answering.generator import ClaudeGenerator
 
     load_dotenv(ROOT / ".env", override=False, encoding="utf-8")
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        pytest.skip("ANTHROPIC_API_KEY absente du fichier .env")
+    if not os.environ.get("OMNIROUTE_API_KEY"):
+        pytest.skip("OMNIROUTE_API_KEY absente du fichier .env")
     trace, _ = explain_question(case.question, searcher, ClaudeGenerator())
 
     expected = REFUSED if case.refused else ANSWERED

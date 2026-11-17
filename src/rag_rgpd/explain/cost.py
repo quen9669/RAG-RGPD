@@ -5,7 +5,7 @@ en français), avec un prix différent pour le texte envoyé (entrée) et le
 texte produit (sortie). Les tokens relus depuis le cache de l'API coûtent
 10 % du prix d'entrée, ceux écrits dans ce cache 125 %.
 
-Les prix sont ceux publiés par Anthropic en octobre 2026, en dollars par
+Via OmniRoute le coût réel est de 0 € ; ces prix (Anthropic, octobre 2026) ne servent que de repère pour comparer, en dollars par
 million de tokens. Ils changent : c'est une estimation, la facture fait foi.
 """
 
@@ -17,10 +17,6 @@ PRICES_USD_PER_MILLION: dict[str, tuple[float, float]] = {
     "claude-sonnet-5-5": (2.00, 10.00),
     "claude-opus-5-5": (4.00, 20.00),
     "claude-fable-5-1": (10.00, 50.00),
-    # DeepSeek (api-docs.deepseek.com, 2026-11-01), tarif « hors pointe » ;
-    # il double aux heures de pointe : c'est une estimation basse.
-    "deepseek-flash": (0.15, 0.60),
-    "deepseek-v4-pro": (0.66, 1.98),
 }
 
 CACHE_READ_FACTOR = 0.1

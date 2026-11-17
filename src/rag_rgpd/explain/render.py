@@ -60,14 +60,7 @@ def format_prompt(trace: Trace) -> str:
         return "(le modèle n'a pas été appelé)"
     lines = ["[CONSIGNE SYSTÈME]", trace.request.get("system", "")]
     for message in trace.request.get("messages", []):
-        for number, block in enumerate(message.get("content", []), start=1):
-            if block.get("type") == "search_result":
-                lines.append(f"[PASSAGE {number}] source={block['source']}")
-                lines.append(f"titre : {block['title']}")
-                lines.extend(c["text"] for c in block["content"])
-                lines.append("")
-            elif block.get("type") == "text":
-                lines.append(f"[MESSAGE] {block['text']}")
+        lines.append(f"[MESSAGE]\n{message.get('content', '')}")
     options = {k: v for k, v in trace.request.items() if k not in ("system", "messages")}
     lines.append(f"[OPTIONS] {json.dumps(options, ensure_ascii=False)}")
     return "\n".join(lines)
@@ -141,8 +134,7 @@ def format_trace(trace: Trace, *, show_prompt: bool = False) -> str:
             system = trace.request.get("system", "")
             out.append(f"consigne système : {len(system)} caractères "
                        f"(« {_short(system, 70)} »)")
-            out.append(f"{len(trace.sent_passages)} passages en blocs search_result "
-                       "(citations activées), puis la question.")
+            out.append(f"{len(trace.sent_passages)} passages numérotés, puis la question.")
             out.append("texte complet : relancer avec --show-prompt")
 
         out.append(_section("5. Réponse brute du modèle"))
