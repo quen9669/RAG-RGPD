@@ -1,3 +1,13 @@
+## Référentiel Franks (prioritaire, lecture seule)
+
+Ce projet suit le référentiel `C:\Users\franc\Dev\Projets\portfolio-franks` (dépôt `quen9669/Referentiel-Portfolio`). On tend absolument vers lui.
+Avant toute modification d'infra, d'IA, de secrets, de données ou d'interface :
+1. Relire `REGLES.md` (R-01 à R-26, non négociables) et `apps/rag-rgpd.md`, en commençant par la **section 4 « Écarts à corriger »**.
+2. Le moins de code possible (méthode Ponytail) et sobriété en tokens.
+3. Visuels : uniquement la bibliothèque `@quen9669/lignes`. IA : uniquement OmniRoute. Secrets : uniquement le coffre OpenBao.
+4. Citer l'ID de l'écart dans le commit (`fix(XXX-01): …`) et mettre à jour `expedition.yaml`.
+Ne jamais modifier le référentiel depuis cette session. Si une règle gêne, le signaler à Franks.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

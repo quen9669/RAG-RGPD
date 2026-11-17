@@ -1,0 +1,25 @@
+# expedition.yaml (règle R-21), lu chaque lundi par la routine du référentiel.
+# Tenu à jour à chaque fin de tâche ; un écart passe en `corriges` quand le commit cite son ID.
+
+code: EXP-03
+app: rag-rgpd
+ligne: ai                    # de | dg | ds | ai | ml
+etape: 4                     # 1 à 6 (port → dernier km)
+etape_libelle: "Modèle, agents et évaluation en place, mise en production à faire"
+etat: en_construction        # en_service | degrade | arrete | en_construction
+maj: 2026-11-17
+
+ecarts:
+  corriges: []
+  en_cours:
+    - RAG-08                 # expedition.yaml fait ; /health et /vitrine.json restent à faire
+
+fait:
+  - "Ingestion, découpage et index hybride BM25 + dense (RRF) sur ~1900 morceaux"
+  - "Réponses citées, refus sous le seuil, 3 agents, évaluation sur 52 questions"
+  - "Alignement de la feuille de route sur le référentiel (RAG-08)"
+
+prochaines:
+  - "RAG-01 : appels LLM via OmniRoute (clé rag-rgpd), puis RAG-06 : relancer les 52 questions"
+
+chiffres: []
