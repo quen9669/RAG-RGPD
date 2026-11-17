@@ -8,20 +8,10 @@ from pathlib import Path
 import streamlit as st
 
 from rag_rgpd.agents.omniroute import KEY_VARIABLE, OmniRouteError
-from rag_rgpd.answering.cache import ResponseCache
-from rag_rgpd.answering.cli import (
-    load_env,
-    make_embedder,
-    make_generator,
-    make_reranker,
-)
+from rag_rgpd.answering.cli import load_env
 from rag_rgpd.answering.generator import DEFAULT_MODEL
 from rag_rgpd.chat.coulisses import agent_rows, passage_rows, stages, timing_text
-from rag_rgpd.chat.engine import ChatEngine, Reply
-from rag_rgpd.explain.trace import DEFAULT_TRACE_PATH
-from rag_rgpd.retrieval.embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
-from rag_rgpd.retrieval.index import Searcher
-from rag_rgpd.retrieval.rerank import DEFAULT_MODEL as RERANK_MODEL
+from rag_rgpd.chat.engine import ChatEngine, Reply, build_engine
 
 MODELS = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"]
 DISCLAIMER = "Cet assistant aide à l'analyse et ne remplace pas un avis juridique."
@@ -29,12 +19,7 @@ DISCLAIMER = "Cet assistant aide à l'analyse et ne remplace pas un avis juridiq
 
 @st.cache_resource(show_spinner="Chargement de l'index et des modèles (1re fois : ~1 min)…")
 def get_engine() -> ChatEngine:
-    load_env(Path(".env"))
-    searcher = Searcher(Path("data/index"), make_embedder(EMBEDDING_MODEL),
-                        reranker=make_reranker(RERANK_MODEL))
-    cache = ResponseCache()
-    return ChatEngine(searcher, lambda model: make_generator(model, cache),
-                      trace_path=DEFAULT_TRACE_PATH, route=True)
+    return build_engine()
 
 
 def render_reply(reply: Reply) -> None:

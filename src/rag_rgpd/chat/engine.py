@@ -99,3 +99,27 @@ class ChatEngine:
             write_trace(trace, self.trace_path)
         assert answer is not None  # un générateur est toujours fourni
         return to_reply(answer, trace.cost_usd, trace.trace_id, trace)
+
+
+def build_engine() -> ChatEngine:
+    """Ouvre l'index et fabrique le moteur (utilisé par l'API et la page Streamlit)."""
+    from pathlib import Path
+
+    from rag_rgpd.answering.cache import ResponseCache
+    from rag_rgpd.answering.cli import (
+        load_env,
+        make_embedder,
+        make_generator,
+        make_reranker,
+    )
+    from rag_rgpd.explain.trace import DEFAULT_TRACE_PATH
+    from rag_rgpd.retrieval.embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
+    from rag_rgpd.retrieval.index import Searcher
+    from rag_rgpd.retrieval.rerank import DEFAULT_MODEL as RERANK_MODEL
+
+    load_env(Path(".env"))
+    searcher = Searcher(Path("data/index"), make_embedder(EMBEDDING_MODEL),
+                        reranker=make_reranker(RERANK_MODEL))
+    cache = ResponseCache()
+    return ChatEngine(searcher, lambda model: make_generator(model, cache),
+                      trace_path=DEFAULT_TRACE_PATH, route=True)
