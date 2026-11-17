@@ -44,3 +44,32 @@ def test_serveur_repond_et_refuse_le_reste() -> None:
         assert conn.getresponse().status == 404
     finally:
         server.shutdown()
+
+
+def _post(port: int, corps: bytes) -> tuple[int, bytes]:
+    conn = HTTPConnection("127.0.0.1", port)
+    conn.request("POST", "/api/ask", body=corps, headers={"Content-Length": str(len(corps))})
+    resp = conn.getresponse()
+    return resp.status, resp.read()
+
+
+def test_api_ask_repond_avec_sources_et_version(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    source = SimpleNamespace(number=1, heading="Article 17", pages="", url="https://x/rgpd",
+                             quotes=["droit à l'effacement"])
+    reply = SimpleNamespace(text="Oui [1].", refused=False, reason="", sources=[source],
+                            cost_usd=0.0, trace_id="t1")
+    monkeypatch.setattr(contrat, "_engine", SimpleNamespace(ask=lambda q, model: reply))
+    monkeypatch.setattr(contrat, "versions", lambda: {"https://x/rgpd": "2026-10-30"})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), contrat.Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        status, corps = _post(server.server_port, b'{"question": "Qu\\u2019est-ce que l\\u2019effacement ?"}')
+        data = json.loads(corps)
+        assert status == 200 and data["texte"] == "Oui [1]."
+        assert data["sources"][0]["version"] == "2026-10-30" and data["sources"][0]["verifie"]
+        assert _post(server.server_port, b"pas du json")[0] == 400
+        assert _post(server.server_port, b'{"question": "  "}')[0] == 400
+    finally:
+        server.shutdown()
