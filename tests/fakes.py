@@ -1,6 +1,7 @@
 """Faux objets partagés par les tests de recherche et de réponse."""
 
 import hashlib
+import json
 import re
 import unicodedata
 from types import SimpleNamespace
@@ -98,13 +99,19 @@ CHUNKS = [
 ]
 
 
-def text_block(text: str, *cited: tuple[int, str]) -> SimpleNamespace:
-    """Bloc de texte tel que renvoyé par l'API, avec ses citations."""
-    citations = [
-        SimpleNamespace(type="search_result_location", search_result_index=i, cited_text=t)
-        for i, t in cited
-    ]
-    return SimpleNamespace(type="text", text=text, citations=citations or None)
+def text_block(text: str) -> SimpleNamespace:
+    """Bloc de texte tel que renvoyé par l'API."""
+    return SimpleNamespace(type="text", text=text, citations=None)
+
+
+def cited_block(text: str, *cited: tuple[int, str]) -> SimpleNamespace:
+    """Réponse JSON du rédacteur : un segment par citation (index à partir de 0).
+
+    Sans citation, un seul segment de source 0 (texte non cité).
+    """
+    segments = [{"texte": text if n == 0 else "", "source": i + 1, "extrait": t}
+                for n, (i, t) in enumerate(cited)] or [{"texte": text, "source": 0, "extrait": ""}]
+    return text_block(json.dumps({"segments": segments}))
 
 
 def response(*blocks: Any, stop_reason: str = "end_turn", model: str = "claude-test",
@@ -141,7 +148,7 @@ class FakeGenerator:
         from rag_rgpd.answering.generator import parse_response
 
         first = hits[0].chunk.text[:40]
-        reply = response(text_block("Selon le texte, " + first, (0, first)),
+        reply = response(cited_block("Selon le texte, " + first, (0, first)),
                          model=self.model, input_tokens=2000, output_tokens=100)
         return parse_response(question, hits, reply, {"model": self.model, "system": "consigne",
                                                        "messages": []})

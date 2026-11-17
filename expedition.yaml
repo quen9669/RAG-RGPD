@@ -10,16 +10,18 @@ etat: en_construction        # en_service | degrade | arrete | en_construction
 maj: 2026-11-17
 
 ecarts:
-  corriges: []
+  corriges:
+    - RAG-01                 # LLM via OmniRoute, plus d'Anthropic ni DeepSeek en direct
   en_cours:
     - RAG-08                 # expedition.yaml fait ; /health et /vitrine.json restent à faire
 
 fait:
   - "Ingestion, découpage et index hybride BM25 + dense (RRF) sur ~1900 morceaux"
   - "Réponses citées, refus sous le seuil, 3 agents, évaluation sur 52 questions"
+  - "Tous les appels LLM passent par OmniRoute (RAG-01)"
   - "Alignement de la feuille de route sur le référentiel (RAG-08)"
 
 prochaines:
-  - "RAG-01 : appels LLM via OmniRoute (clé rag-rgpd), puis RAG-06 : relancer les 52 questions"
+  - "RAG-06 : relancer les 52 questions via OmniRoute et comparer avec Haiku"
 
 chiffres: []

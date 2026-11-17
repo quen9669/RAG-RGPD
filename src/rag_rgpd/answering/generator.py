@@ -7,26 +7,28 @@ vraie), de la moins chère à la plus fine :
    question (similarité sous le seuil), on répond « je ne sais pas » sans
    appeler le modèle.
 2. **Dans la consigne** : le modèle ne doit utiliser que les passages fournis
-   et répondre exactement « Je ne sais pas. » s'ils ne suffisent pas.
+   et renvoyer aucun segment s'ils ne suffisent pas.
 3. **Après le LLM** : une réponse sans aucune citation est traitée comme un
    refus. On ne publie jamais une affirmation qu'aucun passage n'appuie. Une
    citation dont le texte ne se retrouve pas dans le passage désigné (ou qui
    désigne un passage qui n'a pas été envoyé) entraîne aussi un refus.
 
-Les passages sont envoyés à Claude sous forme de blocs ``search_result`` avec
-les citations activées : c'est l'API qui relie chaque phrase de la réponse au
-passage exact qui l'appuie (texte cité mot pour mot), au lieu de compter sur
-le modèle pour recopier correctement des numéros de source.
+Les passages sont envoyés numérotés, et le modèle (appelé par OmniRoute) renvoie
+des segments JSON : texte, numéro du passage et extrait copié mot pour mot.
+Le code vérifie chaque extrait dans le passage désigné (barrière 3) : une
+citation fausse ne passe jamais.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 from anthropic.types.beta import BetaMessage
 
+from rag_rgpd.agents.omniroute import make_client
 from rag_rgpd.answering.cache import ResponseCache
 from rag_rgpd.retrieval.index import DEFAULT_MIN_SIMILARITY, Hit
 
@@ -35,9 +37,16 @@ DEFAULT_MODEL = "claude-haiku-5-5"
 vers ``claude-sonnet-5-5`` ou ``claude-opus-5-5`` si la qualité ne suit pas
 (mesure à l'étape 5)."""
 
-FALLBACK_MODELS = {"claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1"}
-"""Modèles qui acceptent le repli automatique côté serveur (Haiku ne
-l'accepte pas : la requête serait rejetée)."""
+SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"segments": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"texte": {"type": "string"}, "source": {"type": "integer"},
+                       "extrait": {"type": "string"}},
+        "required": ["texte", "source", "extrait"], "additionalProperties": False}}},
+    "required": ["segments"], "additionalProperties": False,
+}
+"""Forme de la réponse du rédacteur : une liste de segments cités."""
 
 REFUSAL_TEXT = "Je ne sais pas."
 
@@ -56,8 +65,7 @@ personnelles au Luxembourg (RGPD et documents de la CNPD).
 Règles :
 - Réponds en français, en langage simple, en expliquant chaque sigle à sa \
 première utilisation.
-- Appuie-toi uniquement sur les résultats de recherche fournis dans le \
-message. N'utilise pas tes connaissances générales, même si tu es sûr de toi.
+- Appuie-toi uniquement sur les passages numérotés fournis dans le message. N'utilise pas tes connaissances générales, même si tu es sûr de toi.
 - Chaque affirmation doit pouvoir être reliée à un passage précis, y compris \
 les exemples : ne donne un exemple que s'il figure dans un passage, et cite ce \
 passage.
@@ -66,9 +74,13 @@ mot, mets-la entre guillemets « ».
 - Chaque droit et chaque obligation a ses propres règles : n'applique pas à \
 l'un (par exemple le droit à l'effacement) ce qu'un passage dit d'un autre \
 (par exemple le droit d'accès), sauf si un passage le dit explicitement.
-- Si les passages ne permettent pas de répondre, réponds exactement \
-« Je ne sais pas. » et rien d'autre. Une réponse partielle est acceptable \
-seulement si tu dis clairement ce que les passages ne couvrent pas.
+- Réponds par une liste de segments. Chaque segment a : « texte » (une ou \
+plusieurs phrases), « source » (numéro du passage qui l'appuie, à partir de 1) \
+et « extrait » (phrase copiée mot pour mot de ce passage).
+- Si les passages ne permettent pas de répondre, renvoie une liste de \
+segments vide. Une réponse partielle est acceptable seulement si tu dis \
+clairement ce que les passages ne couvrent pas, dans un segment de source 0 \
+et d'extrait vide.
 - Tu n'es pas un avocat : ne présente pas ta réponse comme un avis juridique.
 """
 
@@ -204,23 +216,9 @@ def usage_dict(response: Any) -> dict[str, int]:
     return {name: int(getattr(usage, name, 0) or 0) for name in names}
 
 
-def search_result_blocks(hits: list[Hit]) -> list[dict[str, Any]]:
-    """Présente les passages au modèle sous forme de résultats de recherche.
-
-    ``source`` porte l'identifiant du morceau : c'est lui que l'API renvoie
-    dans chaque citation, ce qui permet de remonter sans ambiguïté au
-    morceau, puis au fichier brut (lineage).
-    """
-    return [
-        {
-            "type": "search_result",
-            "source": hit.chunk.chunk_id,
-            "title": hit.chunk.heading,
-            "content": [{"type": "text", "text": hit.chunk.text}],
-            "citations": {"enabled": True},
-        }
-        for hit in hits
-    ]
+def passages_text(hits: list[Hit]) -> str:
+    """Présente les passages numérotés au modèle (``[1]`` = premier passage)."""
+    return "\n\n".join(f"[{i}] {h.chunk.heading}\n{h.chunk.text}" for i, h in enumerate(hits, 1))
 
 
 def parse_response(
@@ -246,29 +244,24 @@ def parse_response(
     if response.stop_reason == "refusal":
         return refuse(question, SAFETY_REFUSAL, "le modèle a décliné la demande", hits, **trace)
 
-    raw_parts: list[str] = []
-    parts: list[str] = []
-    citations: list[Citation] = []
-    for block in response.content:
-        # On ignore les blocs de réflexion et les blocs « fallback » (passage
-        # de relais à un autre modèle) : seul le texte compose la réponse.
-        if block.type != "text":
-            continue
-        raw_parts.append(block.text)
-        parts.append(block.text)
-        numbers = []
-        for cite in block.citations or []:
-            if getattr(cite, "type", "") != "search_result_location":
-                continue
-            citation = make_citation(hits, cite.search_result_index, cite.cited_text)
-            citations.append(citation)
-            numbers.append(citation.source_number)
-        if numbers:
-            parts.append("".join(f"[{n}]" for n in sorted(set(numbers))))
+    raw = next((b.text for b in response.content if b.type == "text"), "")
+    trace["raw_text"] = raw
+    try:
+        segments = json.loads(raw)["segments"]
+        parts: list[str] = []
+        citations: list[Citation] = []
+        for seg in segments:
+            parts.append(seg["texte"])
+            if seg["source"]:
+                citation = make_citation(hits, int(seg["source"]) - 1, seg["extrait"])
+                citations.append(citation)
+                parts.append(f"[{citation.source_number}]")
+    except (ValueError, KeyError, TypeError) as error:
+        return refuse(question, NO_CITATION,
+                      f"réponse du modèle illisible : {error}", hits, **trace)
 
-    text = "".join(parts).strip()
-    trace["raw_text"] = "".join(raw_parts)
-    if text.startswith("Je ne sais pas"):
+    text = re.sub(r" (?=[,.;:\[])", "", " ".join(parts)).strip()
+    if not segments or text.startswith("Je ne sais pas"):
         return refuse(question, MODEL_INSUFFICIENT,
                       "les passages trouvés ne permettent pas de répondre", hits, **trace)
     if not citations:
@@ -288,7 +281,7 @@ def parse_response(
 
 
 class ClaudeGenerator:
-    """Rédaction de la réponse par Claude, avec citations vérifiées par l'API."""
+    """Rédaction de la réponse par le LLM (via OmniRoute), citations vérifiées par le code."""
 
     def __init__(
         self,
@@ -301,10 +294,9 @@ class ClaudeGenerator:
         """Prépare le client.
 
         Args:
-            client: client ``anthropic.Anthropic`` (un faux dans les tests).
-                Par défaut, un client qui lit la clé dans la variable
-                d'environnement ``ANTHROPIC_API_KEY``.
-            model: modèle Claude à utiliser.
+            client: client OmniRoute (un faux dans les tests). Par défaut,
+                un client qui lit ``OMNIROUTE_API_KEY``.
+            model: modèle demandé à OmniRoute.
             effort: profondeur de réflexion (``low`` à ``max``). ``medium``
                 suffit pour reformuler des passages fournis ; à mesurer à
                 l'étape 5.
@@ -312,9 +304,7 @@ class ClaudeGenerator:
                 l'API.
         """
         if client is None:
-            import anthropic
-
-            client = anthropic.Anthropic()
+            client = make_client()
         self._client = client
         self.model = model
         self.effort = effort
@@ -326,32 +316,21 @@ class ClaudeGenerator:
             "model": self.model,
             "max_tokens": 16000,
             "system": SYSTEM_PROMPT,
-            "output_config": {"effort": self.effort},
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        *search_result_blocks(hits),
-                        {"type": "text", "text": f"Question : {question}"},
-                    ],
-                }
-            ],
+            "output_config": {"effort": self.effort,
+                              "format": {"type": "json_schema", "schema": SCHEMA}},
+            "messages": [{"role": "user", "content":
+                          f"Passages :\n\n{passages_text(hits)}\n\nQuestion : {question}"}],
         }
-        options: dict[str, Any] = {}
-        if self.model in FALLBACK_MODELS:
-            # Si le modèle décline la demande (filtre de sécurité trop
-            # prudent), l'API la relance elle-même sur un modèle de secours.
-            options = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
         if self.cache is None:
-            response = self._client.beta.messages.create(**request, **options)
+            response = self._client.beta.messages.create(**request)
             return parse_response(question, hits, response, request)
 
-        key = self.cache.key({**request, **options})
+        key = self.cache.key(request)
         cached = self.cache.get(key)
         if cached is not None:
             response = BetaMessage.model_validate(cached)
         else:
-            response = self._client.beta.messages.create(**request, **options)
+            response = self._client.beta.messages.create(**request)
             self.cache.put(key, response.model_dump(mode="json"))
         answer = parse_response(question, hits, response, request)
         return replace(answer, from_cache=cached is not None)

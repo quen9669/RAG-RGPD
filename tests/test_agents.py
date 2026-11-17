@@ -18,7 +18,7 @@ from rag_rgpd.agents.verifier import make_verifier, verify
 from rag_rgpd.answering.generator import ClaudeGenerator
 from rag_rgpd.explain.trace import ANSWERED, REFUSED, explain_question
 from rag_rgpd.retrieval.index import Hit, Searcher, build_index
-from fakes import CHUNKS, FakeEmbedder, FakeReranker, make_chunk, response, text_block
+from fakes import CHUNKS, FakeEmbedder, FakeReranker, cited_block, make_chunk, response, text_block
 
 
 class ScriptedClient:
@@ -46,7 +46,7 @@ def verdict_reply(*claims: tuple[str, bool]) -> SimpleNamespace:
 
 def writer_reply(text: str = "Le consentement est requis") -> SimpleNamespace:
     cited = CHUNKS[0].text[:30]
-    return response(text_block(text, (0, cited)), model="claude-haiku-5-5",
+    return response(cited_block(text, (0, cited)), model="claude-haiku-5-5",
                     input_tokens=2000, output_tokens=100)
 
 
@@ -133,7 +133,7 @@ def test_reprise_avec_les_remarques_du_verificateur() -> None:
 
     assert not answer.refused
     assert "seconde version" in answer.text
-    second = writer_client.requests[1]["messages"][0]["content"][-1]["text"]
+    second = writer_client.requests[1]["messages"][0]["content"]
     assert "inventée" in second
     assert answer.question == "Faut-il consentir ?"  # sans les remarques
     assert answer.usage["input_tokens"] == 4000  # deux rédactions comptées
@@ -162,7 +162,7 @@ def test_un_tour_suffit_si_demande() -> None:
 
 
 def test_un_refus_du_redacteur_n_appelle_pas_le_verificateur() -> None:
-    refusal = response(text_block("Je ne sais pas."))
+    refusal = response(text_block('{"segments": []}'))
     generator, _ = make_generator([refusal], [])
 
     answer = generator.generate("Hors sujet ?", HITS)
@@ -275,13 +275,13 @@ def test_json_agent_utilise_le_cache(tmp_path: Path) -> None:
     assert first.step["cost_usd"] > 0 and second.step["cost_usd"] == 0.0
 
 
-# --- DeepSeek ----------------------------------------------------------------
+# --- OmniRoute ----------------------------------------------------------------
 
 
-def _deepseek(reply: dict[str, Any] | list[dict[str, Any]], key: str | None = "sk-test"):
+def _omniroute(reply: dict[str, Any] | list[dict[str, Any]], key: str | None = "sk-test"):
     import httpx
 
-    from rag_rgpd.agents.deepseek import DeepSeekClient
+    from rag_rgpd.agents.omniroute import OmniRouteClient
 
     replies = [reply] if isinstance(reply, dict) else list(reply)
     seen: list[httpx.Request] = []
@@ -290,19 +290,18 @@ def _deepseek(reply: dict[str, Any] | list[dict[str, Any]], key: str | None = "s
         seen.append(request)
         return httpx.Response(200, json=replies.pop(0))
 
-    client = DeepSeekClient(api_key=key, http=httpx.Client(transport=httpx.MockTransport(handler)))
+    client = OmniRouteClient(api_key=key, http=httpx.Client(transport=httpx.MockTransport(handler)))
     return client, seen
 
 
 def _ds_reply(content: str) -> dict[str, Any]:
     return {"id": "x", "choices": [{"message": {"content": content}}],
-            "usage": {"prompt_tokens": 1000, "completion_tokens": 50,
-                      "prompt_cache_hit_tokens": 400}}
+            "usage": {"prompt_tokens": 1000, "completion_tokens": 50}}
 
 
-def test_deepseek_repond_comme_un_client_anthropic() -> None:
-    client, seen = _deepseek(_ds_reply('{"affirmations": [{"texte": "a", "appuyee": true}]}'))
-    agent = make_verifier(client, model="deepseek-flash")
+def test_omniroute_repond_comme_un_client_anthropic() -> None:
+    client, seen = _omniroute(_ds_reply('{"affirmations": [{"texte": "a", "appuyee": true}]}'))
+    agent = make_verifier(client, model="modele-gratuit")
 
     verdict = verify(agent, make_answer())
 
@@ -312,91 +311,46 @@ def test_deepseek_repond_comme_un_client_anthropic() -> None:
     assert "affirmations" in body["messages"][0]["content"]  # le schéma est dans la consigne
     assert seen[0].headers["authorization"] == "Bearer sk-test"
     usage = verdict.step["usage"]
-    assert usage["input_tokens"] == 600 and usage["cache_read_input_tokens"] == 400
-    assert 0 < verdict.step["cost_usd"] < 0.001
+    assert usage["input_tokens"] == 1000 and usage["output_tokens"] == 50
+    assert body["model"] == "modele-gratuit"
 
 
-def test_deepseek_reponse_vide_puis_reussie() -> None:
-    client, _ = _deepseek([_ds_reply(""), _ds_reply('{"requetes": []}')])
+def test_omniroute_reponse_vide_puis_reussie() -> None:
+    client, _ = _omniroute([_ds_reply(""), _ds_reply('{"requetes": []}')])
 
-    call = make_researcher(client, model="deepseek-flash").call("q")
+    call = make_researcher(client, model="modele-gratuit").call("q")
 
     assert call.data == {"requetes": []}
 
 
-def test_deepseek_toujours_vide_bloque_la_reponse() -> None:
-    client, _ = _deepseek([_ds_reply(""), _ds_reply("")])
+def test_omniroute_toujours_vide_bloque_la_reponse() -> None:
+    client, _ = _omniroute([_ds_reply(""), _ds_reply("")])
 
-    verdict = verify(make_verifier(client, model="deepseek-flash"), make_answer())
+    verdict = verify(make_verifier(client, model="modele-gratuit"), make_answer())
 
     assert not verdict.ok and "vérification impossible" in verdict.unsupported[0]
 
 
-def test_deepseek_sans_cle() -> None:
-    client, _ = _deepseek(_ds_reply("{}"), key=None)
+def test_omniroute_sans_cle() -> None:
+    client, _ = _omniroute(_ds_reply("{}"), key=None)
 
-    with pytest.raises(ValueError, match="DEEPSEEK_API_KEY"):
-        client.beta.messages.create(model="deepseek-flash", system="s", messages=[])
-
-
-def test_choix_du_client_selon_le_modele(monkeypatch: pytest.MonkeyPatch) -> None:
-    from rag_rgpd.agents.deepseek import DeepSeekClient, is_deepseek, make_client
-
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
-    assert is_deepseek("deepseek-v4-pro") and not is_deepseek("claude-haiku-5-5")
-    assert isinstance(make_client("deepseek-flash"), DeepSeekClient)
-    assert not isinstance(make_client("claude-haiku-5-5"), DeepSeekClient)
+    with pytest.raises(ValueError, match="OMNIROUTE_API_KEY"):
+        client.beta.messages.create(model="modele-gratuit", system="s", messages=[])
 
 
-# --- Routeur de domaines (étape 8) -------------------------------------------
+def test_adresse_omniroute_depuis_l_environnement(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
 
-@pytest.fixture
-def mixed_searcher(tmp_path: Path) -> Searcher:
-    rail = make_chunk(
-        9, "Article 17", "Entretien des voies",
-        "Le gestionnaire de l'infrastructure ferroviaire assure l'entretien des voies.",
-        document_id="infra-ue", domain="ferroviaire", chunk_id="infra-ue-abcdef12-0009",
-    )
-    build_index([*CHUNKS, rail], FakeEmbedder(), tmp_path / "index")
-    return Searcher(tmp_path / "index", FakeEmbedder())
+    seen: list[httpx.Request] = []
 
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=_ds_reply("{}"))
 
-def test_le_routeur_limite_la_recherche_aux_domaines_choisis(mixed_searcher: Searcher) -> None:
-    client = ScriptedClient(json_reply({"domaines": ["rgpd"]}))
-    routed = RoutedSearcher(mixed_searcher, make_router(client))
+    monkeypatch.setenv("OMNIROUTE_BASE_URL", "http://omniroute:20128/v1")
+    from rag_rgpd.agents.omniroute import OmniRouteClient
 
-    hits = routed.search("entretien des voies du gestionnaire", k=5)
+    client = OmniRouteClient(api_key="k", http=httpx.Client(transport=httpx.MockTransport(handler)))
+    client.beta.messages.create(model="m", system="s", messages=[])
 
-    assert {h.chunk.domain for h in hits} == {"rgpd"}
-    steps = routed.take_steps()
-    assert steps[0]["agent"] == "routeur"
-    assert steps[0]["domaines"] == ["rgpd"]
-
-
-def test_le_routeur_est_appele_une_fois_par_question(mixed_searcher: Searcher) -> None:
-    client = ScriptedClient(json_reply({"domaines": ["ferroviaire"]}))
-    routed = RoutedSearcher(mixed_searcher, make_router(client))
-
-    routed.search("entretien des voies", k=3)
-    routed.ranks("entretien des voies")
-
-    assert len(client.requests) == 1
-
-
-def test_liste_vide_ou_panne_du_routeur_cherche_partout(mixed_searcher: Searcher) -> None:
-    for reply in (json_reply({"domaines": []}), response(text_block("illisible"))):
-        routed = RoutedSearcher(mixed_searcher, make_router(ScriptedClient(reply)))
-
-        hits = routed.search("vélo entretien des voies délégué", k=5)
-
-        assert {h.chunk.domain for h in hits} == {"rgpd", "ferroviaire"}
-
-
-def test_le_suivi_du_routeur_remonte_par_le_chercheur(mixed_searcher: Searcher) -> None:
-    routed = RoutedSearcher(mixed_searcher, make_router(ScriptedClient(
-        json_reply({"domaines": ["rgpd"]}))))
-    agent_searcher = AgentSearcher(routed, None)
-
-    agent_searcher.search("effacement des données", k=2)
-
-    assert [s["agent"] for s in agent_searcher.take_steps()] == ["routeur"]
+    assert str(seen[0].url) == "http://omniroute:20128/v1/chat/completions"

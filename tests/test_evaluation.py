@@ -105,7 +105,7 @@ def test_correcteur_lit_le_json(searcher: Searcher) -> None:
     request = client.requests[0]
     assert request["output_config"]["format"]["type"] == "json_schema"
     assert "Piège : mélanger avec l'accès" in request["messages"][0]["content"]
-    assert request["fallbacks"] == "default"
+    assert "fallbacks" not in request
 
 
 def test_message_du_correcteur_numerote_les_passages(searcher: Searcher) -> None:

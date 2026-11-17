@@ -21,8 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import anthropic
-
+from rag_rgpd.agents.omniroute import OmniRouteError
 from rag_rgpd.agents.pipeline import add_agent_options, add_router_options, with_agents, with_router
 from rag_rgpd.answering import cli as ask_cli
 from rag_rgpd.answering.cache import ResponseCache
@@ -162,8 +161,8 @@ def eval_main(argv: list[str] | None = None) -> None:
         rows = run_eval(cases, searcher, generator, judge, k=args.k,
                         min_similarity=args.min_similarity, trace_path=args.trace,
                         params={"embedding_model": args.embedding_model}, progress=print)
-    except anthropic.APIError as error:
-        sys.exit(f"Erreur de l'API Anthropic : {ask_cli._api_error_message(error)}")
+    except OmniRouteError as error:
+        sys.exit(f"Erreur d'OmniRoute : {error}")
     summary = summarize(rows)
 
     at = datetime.now(UTC)

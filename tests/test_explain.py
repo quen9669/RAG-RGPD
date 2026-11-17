@@ -35,7 +35,7 @@ from rag_rgpd.explain.trace import (
 )
 from rag_rgpd.processing.pipeline import write_chunks
 from rag_rgpd.retrieval.index import Hit, Searcher, build_index
-from fakes import CHUNKS, FakeEmbedder, FakeGenerator, FakeReranker, response, text_block
+from fakes import CHUNKS, FakeEmbedder, FakeGenerator, FakeReranker, cited_block, response, text_block
 
 HITS = [Hit(chunk=c, similarity=0.8 - i / 10, score=0.03) for i, c in enumerate(CHUNKS)]
 ROOT = Path(__file__).resolve().parent.parent
@@ -51,14 +51,14 @@ def searcher(tmp_path: Path) -> Searcher:
 
 
 def test_citation_verifiee() -> None:
-    answer = parse_response("q", HITS, response(text_block("Oui", (1, "droit d'obtenir"))))
+    answer = parse_response("q", HITS, response(cited_block("Oui", (1, "droit d'obtenir"))))
 
     assert answer.citations[0].verified
     assert not answer.refused
 
 
 def test_citation_absente_du_passage_entraine_un_refus() -> None:
-    answer = parse_response("q", HITS, response(text_block("Oui", (1, "texte inventé"))))
+    answer = parse_response("q", HITS, response(cited_block("Oui", (1, "texte inventé"))))
 
     assert answer.refused
     assert answer.refusal_code == UNVERIFIED_CITATION
@@ -67,20 +67,20 @@ def test_citation_absente_du_passage_entraine_un_refus() -> None:
 
 
 def test_citation_vers_un_passage_inexistant() -> None:
-    answer = parse_response("q", HITS[:1], response(text_block("Oui", (5, "x"))))
+    answer = parse_response("q", HITS[:1], response(cited_block("Oui", (5, "x"))))
 
     assert answer.refusal_code == UNVERIFIED_CITATION
     assert answer.citations[0].chunk_id == ""
 
 
 def test_citation_tolere_les_espaces() -> None:
-    answer = parse_response("q", HITS, response(text_block("Oui", (1, "droit  d'obtenir\nl'effacement"))))
+    answer = parse_response("q", HITS, response(cited_block("Oui", (1, "droit  d'obtenir\nl'effacement"))))
 
     assert answer.citations[0].verified
 
 
 def test_tokens_releves() -> None:
-    answer = parse_response("q", HITS, response(text_block("Oui", (0, "a consenti")),
+    answer = parse_response("q", HITS, response(cited_block("Oui", (0, "a consenti")),
                                                 input_tokens=1200, output_tokens=80))
 
     assert answer.usage["input_tokens"] == 1200
@@ -105,10 +105,8 @@ def _api_message(cited: str) -> Any:
 
     return BetaMessage.model_validate({
         "id": "msg_1", "type": "message", "role": "assistant", "model": "claude-haiku-5-5",
-        "content": [{"type": "text", "text": "Oui", "citations": [{
-            "type": "search_result_location", "cited_text": cited, "search_result_index": 0,
-            "source": CHUNKS[0].chunk_id, "title": "t", "start_block_index": 0,
-            "end_block_index": 1}]}],
+        "content": [{"type": "text", "text": json.dumps({"segments": [
+            {"texte": "Oui", "source": 1, "extrait": cited}]})}],
         "stop_reason": "end_turn", "stop_sequence": None,
         "usage": {"input_tokens": 900, "output_tokens": 30},
     })
@@ -199,7 +197,7 @@ def test_affichage_de_la_fiche(searcher: Searcher) -> None:
 
 
 def test_texte_exact_envoye(searcher: Searcher) -> None:
-    client_reply = response(text_block("Oui", (0, "La personne")))
+    client_reply = response(cited_block("Oui", (0, "La personne")))
     from fakes import FakeClient
 
     generator = ClaudeGenerator(FakeClient(client_reply))
@@ -207,8 +205,8 @@ def test_texte_exact_envoye(searcher: Searcher) -> None:
 
     prompt = format_prompt(trace)
     assert "[CONSIGNE SYSTÈME]" in prompt
-    assert "[PASSAGE 1] source=" in prompt
-    assert "[MESSAGE] Question : effacement" in prompt
+    assert "[1] " in prompt
+    assert "Question : effacement" in prompt
 
 
 def test_traces_ecrites_et_relues(searcher: Searcher, tmp_path: Path) -> None:
@@ -294,7 +292,7 @@ def _setup_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(ask_cli, "make_embedder", lambda name: FakeEmbedder(name))
     monkeypatch.setattr(ask_cli, "make_reranker", lambda name: FakeReranker())
     monkeypatch.setattr(ask_cli, "make_generator", lambda model, cache=None: FakeGenerator())
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    monkeypatch.setenv("OMNIROUTE_API_KEY", "test")
     ask_cli.index_main(["--chunks", str(tmp_path / "chunks.jsonl"),
                         "--index-dir", str(tmp_path / "index")])
     return tmp_path / "index"
@@ -328,7 +326,7 @@ def test_rag_ask_search_only_ecrit_une_trace(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     index_dir = _setup_cli(tmp_path, monkeypatch)
-    monkeypatch.delenv("ANTHROPIC_API_KEY")
+    monkeypatch.delenv("OMNIROUTE_API_KEY")
     traces = tmp_path / "traces.jsonl"
 
     ask_cli.ask_main(["effacement", "--search-only", "--explain", "--index-dir", str(index_dir),
