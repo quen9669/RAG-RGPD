@@ -1,5 +1,36 @@
 # Feuille de route
 
+> **Le référentiel Franks est prioritaire** (`quen9669/Referentiel-Portfolio`, lecture seule) :
+> `REGLES.md` et `apps/rag-rgpd.md` l'emportent sur tout ce document. Cible : API Python +
+> front React + React Three Fiber (Streamlit n'est qu'une transition), IA uniquement via
+> OmniRoute (clé `rag-rgpd`, 0 €), secrets dans le coffre OpenBao, visuels de `@quen9669/lignes`,
+> « la source ou le silence ». Chaque commit cite l'ID de l'écart corrigé.
+> Les étapes ci-dessous (1 à 8) sont conservées ; rien n'est retiré.
+
+## Écarts du référentiel, dans l'ordre de traitement
+
+| Ordre | ID | Prio | Sujet | Note |
+|---|---|---|---|---|
+| 1 | RAG-01 | P1 | LLM via OmniRoute (client compatible OpenAI, clé `rag-rgpd`), retrait d'Anthropic et DeepSeek en direct | Remplace la décision 0014 (Haiku direct). Première tâche. |
+| 2 | RAG-06 | P2 | Relancer les 52 questions avec les modèles gratuits, comparer avec Haiku | Réf. Haiku : 0,15 $, fidélité 0,968. Après RAG-01. |
+| 3 | RAG-09 | P2 | Secrets : coffre OpenBao seulement, plus de `.env` réel | Déclarer dans le compose, Franks range la valeur. |
+| 4 | RAG-08 | P3 | `expedition.yaml` (fait), `/health` et `/vitrine.json` (à faire) | |
+| 5 | RAG-10 | P2 | Gouvernance visible : articles cités ✓, date de version, score des 52 questions | Composants de la bibliothèque. |
+| 6 | RAG-05 | P2 | Charte : dominante `--line-ai`, citations roses, citation vérifiée verte ✓ | |
+| 7 | RAG-04 | P2 | Front React + scène 3D « la constellation » | Après la bibliothèque (LIB-03). |
+| 8 | RAG-02 | P1 | Migration sur le VPS | **Bloqué par DEC-008** (embeddings dans 12 Go). Ne pas commencer. |
+| 9 | RAG-03 | P2 | Sidecar Tailscale | Avec RAG-02. |
+| 10 | RAG-07 | P3 | Licence CNPD | Surveillé : l'app reste privée tant que non réglée. |
+
+**Scène « la constellation »** (RAG-04) : textes RGPD, CNPD, ferroviaires et open data en
+orbite ; les passages cités s'allument puis passent au vert ✓. Arrive après LIB-03.
+
+**À décider, ne pas commencer (IDEE-01)** : OCR des documents scannés à l'ingestion, avec un
+contrôle de confiance affiché en ✓.
+
+La migration (RAG-02) pousse l'étape 7 (fine-tuning, en pause) et l'étape 8 derrière elle ;
+les mesures de l'étape 8 se font via OmniRoute (RAG-01) et sont comparées à Haiku (RAG-06).
+
 Parcours en 7 étapes, regroupées en 4 phases. Chaque phase donne un résultat
 qui fonctionne seul. Avant chaque étape : explication des concepts, puis 2 ou
 3 options d'outils, et c'est moi qui choisis.
@@ -31,6 +62,14 @@ qui fonctionne seul. Avant chaque étape : explication des concepts, puis 2 ou
 
 Étape optionnelle : demander à l'assistant quelles règles s'appliquent à un
 jeu de données du catalogue data.public.lu.
+
+## Phase 5 : Élargir le corpus
+
+8. Ajouter l'open data (européen et luxembourgeois) et la réglementation
+   ferroviaire (européenne, luxembourgeoise, transfrontalière), avec une étiquette
+   de domaine (rgpd, open-data, ferroviaire, transfrontalier), un seuil de refus et
+   un jeu de questions par domaine. Validée le 2026-11-01 ; détail dans
+   `roadmap/proposition-open-data-ferroviaire.md` (dossier du projet). Ingestion sur le PC.
 
 ---
 
