@@ -14,7 +14,7 @@
 | 1 | RAG-01 | P1 | LLM via OmniRoute (client compatible OpenAI, clé `rag-rgpd`), retrait d'Anthropic et DeepSeek en direct | Remplace la décision 0014 (Haiku direct). Première tâche. |
 | 2 | RAG-06 | P2 | Relancer les 52 questions avec les modèles gratuits, comparer avec Haiku | Réf. Haiku : 0,15 $, fidélité 0,968. Après RAG-01. |
 | 3 | RAG-09 | P2 | Secrets : coffre OpenBao seulement, plus de `.env` réel | Déclarer dans le compose, Franks range la valeur. |
-| 4 | RAG-08 | P3 | `expedition.yaml` (fait), `/health` et `/vitrine.json` (à faire) | |
+| 4 | RAG-08 | P3 | `expedition.yaml`, `/health` et `/vitrine.json` (`uv run rag-contrat`) | Fait. |
 | 5 | RAG-10 | P2 | Gouvernance visible : articles cités ✓, date de version, score des 52 questions | Composants de la bibliothèque. |
 | 6 | RAG-05 | P2 | Charte : dominante `--line-ai`, citations roses, citation vérifiée verte ✓ | |
 | 7 | RAG-04 | P2 | Front React + scène 3D « la constellation » | Après la bibliothèque (LIB-03). |
