@@ -36,7 +36,7 @@ secrets:
   npm_token: {environment: NPM_TOKEN}
 configs:
   serve:
-    content: '{"TCP":{"443":{"HTTPS":true}},"Web":{"${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"http://rag-front:8080"}}}}}'
+    content: '{"TCP":{"443":{"HTTPS":true}},"Web":{"$${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"http://rag-front:8080"}}}}}'
 volumes: {rag-ts-state: {}}
 networks:
   rag-rgpd-net: {}
