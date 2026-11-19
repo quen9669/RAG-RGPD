@@ -21,6 +21,7 @@ type Etape = 0 | 1 | 2
 
 class Lien extends THREE.Curve<THREE.Vector3> {
   cible = new THREE.Vector3()
+  constructor() { super() }
   getPoint(t: number, sortie = new THREE.Vector3()) {
     return sortie.copy(this.cible).multiplyScalar(t)
   }
