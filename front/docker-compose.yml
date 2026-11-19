@@ -1,0 +1,43 @@
+services:
+  rag-front:
+    build:
+      context: .
+      secrets: [npm_token]
+    user: "101:101"
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 64m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+    networks: [rag-rgpd-net, obs-net]
+
+  rag-ts:
+    image: tailscale/tailscale:stable
+    hostname: rag-rgpd
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?}
+      TS_HOSTNAME: rag-rgpd
+      TS_USERSPACE: "true"
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_AUTH_ONCE: "true"
+      TS_TAILSCALED_EXTRA_ARGS: --no-logs-no-support
+    configs: [{source: serve, target: /config/serve.json}]
+    volumes: ["rag-ts-state:/var/lib/tailscale"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    networks: [rag-rgpd-net]
+
+secrets:
+  npm_token: {environment: NPM_TOKEN}
+configs:
+  serve:
+    content: '{"TCP":{"443":{"HTTPS":true}},"Web":{"${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"http://rag-front:8080"}}}}}'
+volumes: {rag-ts-state: {}}
+networks:
+  rag-rgpd-net: {}
+  obs-net: {external: true}
