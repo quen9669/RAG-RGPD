@@ -1,5 +1,6 @@
 import { BadgeLigne, Bouton, Etat, Logo, Valide } from '@quen9669/lignes/ui'
 import { useEffect, useState, type FormEvent } from 'react'
+import { Corpus } from './Corpus'
 import { demander, sante, vitrine, type Reponse, type Sante, type Vitrine } from './api'
 
 const AVERTISSEMENT = "Cet assistant aide à l'analyse et ne remplace pas un avis juridique."
@@ -39,6 +40,8 @@ export function App() {
         <BadgeLigne ligne="ai" />
         <Etat etat={etat} />
       </header>
+
+      <Corpus chiffres={chiffres} />
 
       <form onSubmit={envoyer}>
         <label htmlFor="question">Ta question sur la protection des données</label>
